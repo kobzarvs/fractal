@@ -4,6 +4,7 @@ import { contiguousRingFragment, ringFragment, shipFragment, vertexShader } from
 import { temporalCompositeFragment, temporalFragment } from './temporal';
 import { instantiateRenderWasm, RenderMemoryViews } from './render-wasm';
 import type { RenderWasmExports } from './render-wasm';
+import { GpuFrameCompletion } from './frame-completion.ts';
 
 interface Program { handle: WebGLProgram; locations: (WebGLUniformLocation | null)[] }
 interface Target { texture: WebGLTexture; framebuffer: WebGLFramebuffer; width: number; height: number }
@@ -70,16 +71,19 @@ export class WasmRenderer {
   private timingNext = 0;
   private lastGpuTime: number | null = null;
   private preparationSync: WebGLSync | null = null;
+  private readonly frameCompletion: GpuFrameCompletion | null;
   private readonly onContextLost = () => {
     this.contextInvalid = true;
     this.preparationSync = null;
+    this.frameCompletion?.dispose(true);
   };
 
-  constructor(readonly canvas: HTMLCanvasElement | OffscreenCanvas) {
+  constructor(readonly canvas: HTMLCanvasElement | OffscreenCanvas, trackCompletedFrames = false) {
     const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false,
       premultipliedAlpha: false, preserveDrawingBuffer: true, powerPreference: 'high-performance' }) as WebGL2RenderingContext | null;
     if (!gl) throw new Error('WebGL 2 недоступен.');
     this.gl = gl;
+    this.frameCompletion = trackCompletedFrames ? new GpuFrameCompletion(gl) : null;
     const precision = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
     if (!precision || precision.precision < 23) throw new Error('GPU не поддерживает требуемую highp float точность.');
     this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
@@ -124,6 +128,11 @@ export class WasmRenderer {
   get gpuTimeMs(): number | null { this.pollGpuTimers(); return this.lastGpuTime; }
   get gpuTimings(): readonly GpuTiming[] { this.pollGpuTimers(); return this.timings; }
   get settling(): boolean { return !this.disposed && !this.contextInvalid && this.statsView[8] !== 0; }
+
+  sampleCompletedFrames(now = performance.now()) {
+    return this.frameCompletion?.sample(now) ?? { fps: null, pendingFrames: 0, completionAgeMs: null };
+  }
+  resetCompletedFrames(now = performance.now()): void { this.frameCompletion?.reset(now); }
 
   /** Compatibility boundary only: all views remain valid for the renderer's lifetime. */
   refreshViews(): void {}
@@ -193,6 +202,7 @@ export class WasmRenderer {
     gl.bindVertexArray(this.vao);
     this.bridgeError = null;
     const previousFrame = this.statsView[1];
+    let rendered = false;
     let queryIndex = -1;
     if (mode !== 2 && this.timer && this.queryCount < 8) {
       const slot = (this.queryHead + this.queryCount) % 8;
@@ -202,6 +212,7 @@ export class WasmRenderer {
       const status = this.exports.render_frame(mode, now);
       this.checkRuntime(status, mode === 2 ? 'подготовка кэша' : 'кадр');
       this.updateStats();
+      rendered = mode !== 2 && this.statsView[1] !== previousFrame;
       return status;
     } finally {
       if (queryIndex >= 0 && this.timer) {
@@ -213,6 +224,7 @@ export class WasmRenderer {
         gl.flush();
       }
       if (mode === 2) gl.flush();
+      if (rendered) this.frameCompletion?.recordFrame(performance.now());
     }
   }
 
@@ -320,6 +332,7 @@ export class WasmRenderer {
   dispose(): void {
     if (this.disposed) return;
     this.cancelPreparation();
+    this.frameCompletion?.dispose(this.contextInvalid);
     this.canvas.removeEventListener('webglcontextlost', this.onContextLost);
     this.exports.render_dispose();
     if (!this.contextInvalid && !this.gl.isContextLost()) {

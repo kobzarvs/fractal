@@ -35,6 +35,7 @@ function cameraCommand(op: number, a = 0, b = 0, c = 0, d = 0, e = 0): void {
 }
 function invalidatePreparation(): void {
   renderer!.cancelPreparation();
+  renderer!.resetCompletedFrames();
   prepared = false;
   if (playing) playRequested = true;
   playing = false;
@@ -43,11 +44,13 @@ function invalidatePreparation(): void {
 }
 function startFlight(): void {
   playRequested = false; preparing = false; playing = true;
+  renderer!.resetCompletedFrames();
   cameraCommand(6); cameraCommand(4, 1, playEndZoom);
 }
 function cancelFlight(): void {
   if (playing) { prepared = false; preparing = guided && ready && !pending; }
   playRequested = false; playing = false;
+  renderer!.resetCompletedFrames();
   cameraCommand(4, 0);
 }
 function encodeCoordinates(x: string, y: string): [number, number] {
@@ -65,11 +68,12 @@ function snapshot(): CameraSnapshot {
 }
 function publish(now = performance.now()): void {
   if (!renderer || failed) return;
-
+  const gpuFrames = renderer.sampleCompletedFrames();
   const state: RuntimeState = { ready, pending, lost, playing, preparing, playRequested,
     zoom: stats[9], logScale: stats[10], bits: stats[11],
     path: stats[0] === 0 ? 'direct' : stats[0] === 1 ? 'float' : 'fe',
     fps: suspended || pending || preparing || lost || (!playing && !dirty && !stats[8]) ? 0 : stats[15],
+    gpuFps: gpuFrames.fps, gpuPendingFrames: gpuFrames.pendingFrames, gpuCompletionAgeMs: gpuFrames.completionAgeMs,
     cpuFrameMs, gpuMs: renderer.gpuTimeMs, referenceMs,
     memoryBytes: buffer.byteLength, frame: stats[1], ringActive: !!stats[6],
     drawCalls: stats[14], uploadBytes: renderer.totalReferenceUploadBytes };
@@ -162,7 +166,7 @@ function handle(message: Exclude<RuntimeRequest, { type: 'init' }>): void {
         if (recompute) beginReference(); break;
       }
       case 'suspend':
-        suspended = message.suspended; cameraCommand(6); break;
+        suspended = message.suspended; renderer.resetCompletedFrames(); cameraCommand(6); break;
       case 'snapshot':
         scope.postMessage({ type: 'snapshot', id: message.id, snapshot: snapshot() }); break;
       case 'recover-gpu': {
@@ -198,7 +202,7 @@ function frame(now: number): void {
 async function init(message: Extract<RuntimeRequest, { type: 'init' }>): Promise<void> {
   await preloadRenderWasm();
   canvas = message.canvas; canvas.width = message.width; canvas.height = message.height;
-  renderer = new WasmRenderer(canvas); bindMemory(); input[0] = message.width; input[1] = message.height;
+  renderer = new WasmRenderer(canvas, true); bindMemory(); input[0] = message.width; input[1] = message.height;
   applySettings(message.settings);
   if (message.snapshot) {
     const lengths = encodeCoordinates(message.snapshot.x, message.snapshot.y);
@@ -216,7 +220,7 @@ async function init(message: Extract<RuntimeRequest, { type: 'init' }>): Promise
   });
   canvas.addEventListener('webglcontextrestored', () => {
     try {
-      const position = snapshot(); renderer!.dispose(); renderer = new WasmRenderer(canvas); bindMemory();
+      const position = snapshot(); renderer!.dispose(); renderer = new WasmRenderer(canvas, true); bindMemory();
       input[0] = canvas.width; input[1] = canvas.height; applySettings(settings);
       const lengths = encodeCoordinates(position.x, position.y);
       check(renderer.exports.render_set_camera(lengths[0], lengths[1], position.bits, position.logScale, 0), 'Камера');

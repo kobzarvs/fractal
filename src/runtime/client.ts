@@ -5,6 +5,7 @@ export class WasmRuntimeClient {
   readonly ready: Promise<void>;
   state: RuntimeState = { ready: false, pending: true, lost: false, playing: false, preparing: false, playRequested: false,
     zoom: 0, logScale: 0, bits: 128, path: 'direct', fps: 0, cpuFrameMs: 0, gpuMs: null,
+    gpuFps: null, gpuPendingFrames: 0, gpuCompletionAgeMs: null,
     referenceMs: 0, memoryBytes: 0, frame: 0, ringActive: false, drawCalls: 0, uploadBytes: 0 };
   private readonly worker: Worker;
   private resolveReady!: () => void;
@@ -12,6 +13,7 @@ export class WasmRuntimeClient {
   private sequence = 0;
   private disposed = false;
   private failure: Error | null = null;
+  private lastStateReceivedAt = Number.NaN;
   private readonly pendingSnapshots = new Map<number, { resolve: (snapshot: CameraSnapshot) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }>();
 
   constructor(canvas: HTMLCanvasElement,
@@ -28,6 +30,7 @@ export class WasmRuntimeClient {
       if (message.type === 'state') {
         this.failure = null;
         this.state = message.state;
+        this.lastStateReceivedAt = performance.now();
         if (message.state.ready) this.resolveReady();
         onState(message.state);
       } else if (message.type === 'snapshot') {
@@ -51,6 +54,12 @@ export class WasmRuntimeClient {
 
   send(command: RuntimeCommand): void { if (!this.disposed) this.worker.postMessage(command); }
 
+  /** Worker silence must not leave an old frame rate looking current. */
+  isStateFresh(now = performance.now()): boolean {
+    const age = now - this.lastStateReceivedAt;
+    return !this.disposed && this.failure === null && age >= 0 && age < 1000;
+  }
+
   snapshot(): Promise<CameraSnapshot> {
     if (this.disposed) return Promise.reject(new Error('WASM render worker завершён.'));
     if (this.failure) return Promise.reject(this.failure);
@@ -71,6 +80,7 @@ export class WasmRuntimeClient {
   }
 
   private rejectPending(error: Error): void {
+    this.lastStateReceivedAt = Number.NaN;
     this.failure = error; this.rejectReady(error);
     for (const pending of this.pendingSnapshots.values()) { clearTimeout(pending.timer); pending.reject(error); }
     this.pendingSnapshots.clear();

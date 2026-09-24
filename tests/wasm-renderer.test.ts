@@ -13,6 +13,7 @@ const loader = await import(loaderUrl);
 let rendererSource = await readFile(new URL('../src/gpu/wasm-renderer.ts', import.meta.url), 'utf8');
 for (const name of ['shaders', 'temporal']) rendererSource = rendererSource.replaceAll(`'./${name}'`, JSON.stringify(new URL(`../src/gpu/${name}.ts`, import.meta.url).href));
 rendererSource = rendererSource.replaceAll("'./render-wasm'", JSON.stringify(loaderUrl));
+rendererSource = rendererSource.replaceAll("'./frame-completion.ts'", JSON.stringify(new URL('../src/gpu/frame-completion.ts', import.meta.url).href));
 const { WasmRenderer } = await import(moduleUrl(rendererSource));
 const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
 const fetchBefore = globalThis.fetch;
@@ -94,6 +95,29 @@ test('WASM cache preparation completes or reports optional cache unavailability 
     } finally { renderer.dispose(); }
     assert.equal(fake.live.size, 0);
   }
+});
+
+test('GPU frame telemetry counts successful visible renders but excludes cache preparation', async () => {
+  const fake = canvas(), renderer = new WasmRenderer(fake.canvas, true);
+  try {
+    await renderer.computeReferenceDirect(request);
+    renderer.renderInput[4] = 2; renderer.renderInput[16] = 1;
+    renderer.renderInput[40] = 30; renderer.exports.render_camera_command(3);
+    fake.syncResult('TIMEOUT_EXPIRED');
+    renderer.renderCamera(0);
+    const sample = renderer.sampleCompletedFrames();
+    assert.equal(sample.pendingFrames, 1);
+    assert.equal(sample.fps, null, 'submission alone is not a GPU completion');
+    renderer.resetCompletedFrames();
+    for (let index = 0; index < 100 && !renderer.stats.ringActive; index++) renderer.prepareCamera(index * 16);
+    assert.equal(renderer.sampleCompletedFrames().pendingFrames, 0, 'preparation does not inflate GPU FPS');
+    renderer.exports.render_mark_dirty();
+    renderer.renderCamera(2000);
+    assert.equal(renderer.sampleCompletedFrames().pendingFrames, 1);
+    fake.syncResult('CONDITION_SATISFIED');
+    assert.equal(renderer.sampleCompletedFrames(performance.now() + 2000).pendingFrames, 0);
+  } finally { renderer.dispose(); }
+  assert.equal(fake.live.size, 0);
 });
 
 test('preparation waits for a GPU fence without extra draws and can cancel an unfinished fence', async () => {

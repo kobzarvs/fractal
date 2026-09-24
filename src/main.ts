@@ -10,13 +10,16 @@ import type { RendererAdapter } from './gpu/engine.ts';
 import { FrameRateMeter } from './frame-rate.ts';
 import { WasmRuntimeClient } from './runtime/client.ts';
 import type { CameraSnapshot, RuntimeSettings, RuntimeState } from './runtime/protocol.ts';
+import { GpuFrameCompletion } from './gpu/frame-completion.ts';
+import { gpuFrameRateDisplay } from './fps-display.ts';
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <canvas id="fractal" aria-label="Интерактивный фрактал Burning Ship"></canvas>
   <aside class="performance" aria-label="Частота кадров">
-    <div class="fps-line"><span id="fps-value">—</span><span class="fps-unit">FPS</span></div>
+    <div class="fps-line"><span id="fps-value">—</span><span class="fps-unit">GPU FPS</span></div>
     <div id="fps-engine">WASM SIMD + GPU</div><p id="fps-state">Загрузка…</p>
+    <p class="fps-note">Показ на экране не измеряется</p>
   </aside>
   <header class="brand"><span class="mark">∿</span><div><h1>Burning Ship</h1><p>ИНТЕРАКТИВНЫЙ ФРАКТАЛ</p></div></header>
   <section class="controls" aria-label="Настройки фрактала">
@@ -37,6 +40,7 @@ const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as
 let canvas = el<HTMLCanvasElement>('fractal');
 const status = el('status'), metrics = el('metrics');
 let wasmRuntime: WasmRuntimeClient | null = null, engineVersion = 0;
+let legacyCompletion: GpuFrameCompletion | null = null;
 let pixelWidth = 0, pixelHeight = 0;
 const fpsValue = el('fps-value'), fpsEngine = el('fps-engine'), fpsState = el('fps-state');
 const frameRate = new FrameRateMeter();
@@ -71,7 +75,7 @@ let referenceMs = 0, memoryBytes = 0, memoryMode = '', actualBackend = '', route
 const zoom = () => wasmRuntime ? wasmRuntime.state.zoom : (Math.log2(3.2) - camera.logScale) / Math.log2(10);
 const runtimeSettings = (): RuntimeSettings => ({ iterations: Number(iterationsInput.value), aa: Number(aaInput.value), fold: 1, celtic: 0, hue: 0 });
 function tell(message: string, error = false) { status.textContent = message; status.classList.toggle('error', error); }
-function stop() { playing = false; playButton.textContent = 'Продолжить полёт'; wasmRuntime?.send({ type: 'play', enabled: false, endZoom: tour.endZoom }); }
+function stop() { playing = false; legacyCompletion?.reset(performance.now()); playButton.textContent = 'Продолжить полёт'; wasmRuntime?.send({ type: 'play', enabled: false, endZoom: tour.endZoom }); }
 function markDirty() { dirty = true; zoomInput.value = String(Math.max(0, zoom())); el('zoom-value').textContent = `10^${Math.max(0, zoom()).toFixed(1)}`; }
 function chooseTour(targetZoom = 0) {
   stop(); routeLocked = true;
@@ -83,6 +87,7 @@ function chooseTour(targetZoom = 0) {
 async function requestReference() {
   if (wasmRuntime) return;
   const referenceClient = client ??= new ReferenceClient();
+  legacyCompletion?.reset(performance.now());
   frameRate.reset();
   const version = ++requestVersion, snapshot = { ...camera }; referencePending = true;
   tell('Вычисление опорной орбиты…');
@@ -114,28 +119,29 @@ function resize() {
   if (width !== pixelWidth || height !== pixelHeight) {
     pixelWidth = width; pixelHeight = height;
     if (wasmRuntime) wasmRuntime.send({ type: 'resize', width, height });
-    else { canvas.width = width; canvas.height = height; frameRate.reset(); markDirty(); }
+    else { canvas.width = width; canvas.height = height; frameRate.reset(); legacyCompletion?.reset(performance.now()); markDirty(); }
   }
 }
 function updateFrameRate(now: number) {
   if (wasmRuntime) {
     const state = wasmRuntime.state;
-    fpsValue.textContent = state.pending || state.preparing || state.lost || benchmarking || rendererFailed ? '—' : state.fps.toFixed(1).replace(/\.0$/, '');
+    const display = gpuFrameRateDisplay({ fps: state.gpuFps, pendingFrames: state.gpuPendingFrames },
+      engineStarting ? 'starting' : rendererFailed ? 'failed' : state.lost ? 'lost' : document.hidden ? 'hidden'
+        : benchmarking ? 'benchmark' : !wasmRuntime.isStateFresh() ? 'stale' : state.pending ? 'reference'
+          : state.preparing ? 'preparing' : !state.playing && !state.playRequested && !state.fps ? 'idle' : 'active');
+    fpsValue.textContent = display.value;
     fpsEngine.textContent = 'WASM SIMD + GPU';
-    fpsState.textContent = engineStarting ? 'Загрузка движка…' : rendererFailed ? 'Ошибка движка · можно переключить' : state.lost ? 'Восстановление GPU…' : state.pending ? 'Расчёт опорной орбиты…'
-      : benchmarking ? 'Идёт сравнение движков…' : state.preparing ? 'Подготовка кэша…' : !state.playing && !state.fps ? 'Кадр готов · рендер приостановлен' : 'Кадры за последнюю секунду';
+    fpsState.textContent = display.detail;
     return;
   }
   const suspended = lost || rendererFailed || benchmarking || document.hidden || referencePending;
   const active = renderedSinceMetrics || playing || drag !== null || dirty || renderer?.settling;
-  const fps = suspended ? null : active ? frameRate.sample(now) : 0;
-  fpsValue.textContent = fps === null ? '—' : fps.toFixed(1).replace(/\.0$/, '');
+  const sample = suspended ? { fps: null, pendingFrames: 0 } : legacyCompletion?.sample(performance.now()) ?? { fps: null, pendingFrames: 0 };
+  const display = gpuFrameRateDisplay(sample, engineStarting ? 'starting' : rendererFailed ? 'failed' : lost ? 'lost'
+    : document.hidden ? 'hidden' : benchmarking ? 'benchmark' : referencePending ? 'reference' : active ? 'active' : 'idle');
+  fpsValue.textContent = display.value;
   fpsEngine.textContent = backendInput.value === 'wasm' ? 'WASM SIMD + GPU' : 'JS · исходные шейдеры';
-  fpsState.textContent = engineStarting ? 'Загрузка движка…' : lost ? 'Восстановление GPU…' : rendererFailed ? 'Ошибка движка · можно переключить'
-    : benchmarking ? 'Идёт сравнение движков…'
-    : document.hidden ? 'Вкладка скрыта' : referencePending ? 'Расчёт опорной орбиты…'
-    : !active ? 'Кадр готов · рендер приостановлен'
-    : fps === null ? 'Измерение FPS…' : 'Кадры за последнюю секунду';
+  fpsState.textContent = display.detail;
   if (suspended || !active) frameRate.reset();
   renderedSinceMetrics = false;
 }
@@ -147,21 +153,22 @@ function animate(now: number) {
       if (zoom() >= tour.endZoom - 1e-6) stop();
     }
     if ((dirty || renderer.settling) && (camera.logScale >= -8 || (!referencePending && referenceCamera))) {
-      try { renderer.render(view()); frameRate.record(now); renderedSinceMetrics = true; dirty = false; }
+      try { renderer.render(view()); legacyCompletion?.recordFrame(performance.now()); frameRate.record(now); renderedSinceMetrics = true; dirty = false; }
       catch (error) { stop(); dirty = false; tell(error instanceof Error ? error.message : String(error), true); }
     }
     if (now - lastMetrics > 250) {
       const gpu = renderer.gpuTimeMs;
-      metrics.textContent = `${renderer.stats.path.toUpperCase()} · ${canvas.width}×${canvas.height} · Орбита ${actualBackend} ${referenceMs.toFixed(1)} мс · GPU ${gpu === null ? 'н/д' : gpu.toFixed(2) + ' мс'}${memoryBytes ? ` · ${(memoryBytes / 1048576).toFixed(1)} MiB / ${memoryMode}` : ''}${params.has('diagnostics') && playing ? ` · Кэш ${renderer.stats.ringActive ? 'активен' : 'не активен'}` : ''}`;
+      metrics.textContent = `${renderer.stats.path.toUpperCase()} · ${canvas.width}×${canvas.height} · Орбита ${actualBackend} ${referenceMs.toFixed(1)} мс · GPU ${gpu === null ? 'н/д' : gpu.toFixed(2) + ' мс'}${memoryBytes ? ` · ${(memoryBytes / 1048576).toFixed(1)} MiB / ${memoryMode}` : ''}${params.has('diagnostics') && playing ? ` · Отправка ${(frameRate.sample(now) ?? 0).toFixed(1)} кадр/с · Кэш ${renderer.stats.ringActive ? 'активен' : 'не активен'}` : ''}`;
     }
   }
-  if (now - lastMetrics > 250) { updateFrameRate(now); lastMetrics = now; }
+  if (now - lastMetrics > 250) lastMetrics = now;
   requestAnimationFrame(animate);
 }
 playButton.onclick = () => {
   if (playing) { stop(); markDirty(); return; }
   if (!routeLocked || zoom() >= tour.endZoom) chooseTour();
   frameRate.reset();
+  legacyCompletion?.reset(performance.now());
   playing = true; playButton.textContent = 'Пауза';
   wasmRuntime?.send({ type: 'play', enabled: true, endZoom: tour.endZoom });
 };
@@ -218,11 +225,13 @@ canvas.onpointercancel = event => { drag = null;
   if (wasmRuntime) wasmRuntime.send({ type: 'pointer', phase: 'end', x: event.clientX, y: event.clientY, height: canvas.clientHeight });
   else void requestReference();
 };
-canvas.addEventListener('webglcontextlost', event => { if (!currentCanvas() || wasmRuntime) return; event.preventDefault(); lost = true; stop(); requestVersion++; client?.cancel(); referencePending = false; tell('GPU-контекст потерян. Ожидание восстановления…', true); });
+canvas.addEventListener('webglcontextlost', event => { if (!currentCanvas() || wasmRuntime) return; event.preventDefault(); legacyCompletion?.dispose(true); legacyCompletion = null; lost = true; stop(); requestVersion++; client?.cancel(); referencePending = false; tell('GPU-контекст потерян. Ожидание восстановления…', true); });
 canvas.addEventListener('webglcontextrestored', () => {
   if (!currentCanvas() || wasmRuntime) return;
   lost = false;
-  try { renderer.dispose(); renderer = createRenderer(canvas, backendInput.value as Backend); rendererFailed = false; referenceCamera = null; void requestReference(); }
+  try { renderer.dispose(); renderer = createRenderer(canvas, backendInput.value as Backend);
+    legacyCompletion = new GpuFrameCompletion(canvas.getContext('webgl2')!);
+    rendererFailed = false; referenceCamera = null; void requestReference(); }
   catch (error) { rendererFailed = true; tell(String(error), true); }
 });
 }
@@ -232,7 +241,7 @@ function acceptRuntimeState(state: RuntimeState) {
   playButton.textContent = playing ? 'Пауза' : 'Продолжить полёт';
   zoomInput.value = String(state.zoom); el('zoom-value').textContent = `10^${state.zoom.toFixed(1)}`;
   tell(state.lost ? 'GPU-контекст потерян. Ожидание восстановления…' : state.pending ? 'Вычисление опорной орбиты…' : state.preparing ? 'Подготовка кэша…' : 'Готово', state.lost);
-  metrics.textContent = `${state.path.toUpperCase()} · ${pixelWidth}×${pixelHeight} · Орбита WASM SIMD ${state.referenceMs.toFixed(1)} мс · CPU кадра ${state.cpuFrameMs.toFixed(2)} мс · GPU ${state.gpuMs === null ? 'н/д' : state.gpuMs.toFixed(2) + ' мс'} · ${(state.memoryBytes / 1048576).toFixed(1)} MiB${params.has('diagnostics') && state.playing ? ` · Кэш ${state.ringActive ? 'активен' : 'не активен'}` : ''}`;
+  metrics.textContent = `${state.path.toUpperCase()} · ${pixelWidth}×${pixelHeight} · Орбита WASM SIMD ${state.referenceMs.toFixed(1)} мс · CPU кадра ${state.cpuFrameMs.toFixed(2)} мс · GPU ${state.gpuMs === null ? 'н/д' : state.gpuMs.toFixed(2) + ' мс'} · ${(state.memoryBytes / 1048576).toFixed(1)} MiB${params.has('diagnostics') && state.playing ? ` · Отправка ${state.fps.toFixed(1)} кадр/с · Без подтверждения ${state.gpuPendingFrames} · Кэш ${state.ringActive ? 'активен' : 'не активен'}` : ''}`;
 }
 async function startEngine(initial = false) {
   const version = ++engineVersion;
@@ -247,7 +256,7 @@ async function startEngine(initial = false) {
       } else snapshot = { x: String(camera.x), y: String(camera.y), bits: camera.bits, logScale: camera.logScale };
     }
     if (version !== engineVersion) return;
-    wasmRuntime?.dispose(); wasmRuntime = null; renderer?.dispose(); drag = null;
+    wasmRuntime?.dispose(); wasmRuntime = null; legacyCompletion?.dispose(); legacyCompletion = null; renderer?.dispose(); drag = null;
     if (!initial) {
       const replacement = document.createElement('canvas'); replacement.id = 'fractal';
       replacement.setAttribute('aria-label', 'Интерактивный фрактал Burning Ship');
@@ -271,14 +280,17 @@ async function startEngine(initial = false) {
       camera = snapshot ? { x: BigInt(snapshot.x), y: BigInt(snapshot.y), bits: snapshot.bits, logScale: snapshot.logScale }
         : makeCamera(innerWidth / innerHeight);
       renderer = createRenderer(canvas, 'js'); rendererFailed = false;
+      legacyCompletion = new GpuFrameCompletion(canvas.getContext('webgl2')!);
       markDirty(); void requestReference();
     }
   } catch (error) { if (version === engineVersion) { rendererFailed = true; referencePending = false; tell(error instanceof Error ? error.message : String(error), true); } }
   finally { if (version === engineVersion) engineStarting = false; }
 }
 addEventListener('resize', resize);
-document.addEventListener('visibilitychange', () => { wasmRuntime?.send({ type: 'suspend', suspended: document.hidden || benchmarking }); frameRate.reset(); lastFrame = performance.now(); updateFrameRate(lastFrame); });
-addEventListener('pagehide', () => { wasmRuntime?.dispose(); client?.dispose(); renderer?.dispose(); }, { once: true });
+document.addEventListener('visibilitychange', () => { wasmRuntime?.send({ type: 'suspend', suspended: document.hidden || benchmarking }); legacyCompletion?.reset(performance.now()); frameRate.reset(); lastFrame = performance.now(); updateFrameRate(lastFrame); });
+// HUD freshness must not depend on canvas RAF continuing (e.g. an occluded window).
+const fpsRefresh = setInterval(() => updateFrameRate(performance.now()), 250);
+addEventListener('pagehide', () => { clearInterval(fpsRefresh); wasmRuntime?.dispose(); client?.dispose(); legacyCompletion?.dispose(); renderer?.dispose(); }, { once: true });
 addEventListener('pageshow', event => { if ((event as PageTransitionEvent).persisted) location.reload(); });
 el('close-report').onclick = () => el<HTMLDialogElement>('report').close();
 function reportDownload(serialized: string) {

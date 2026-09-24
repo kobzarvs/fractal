@@ -20,7 +20,7 @@ const integer = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 });
 const valid = (value: number): boolean => Number.isFinite(value) && value >= 0;
 const ms = (value: number | undefined): string => value !== undefined && valid(value) ? `${decimal.format(value)} мс` : '—';
 const count = (value: number): string => valid(value) ? integer.format(value) : '—';
-const fps = (value: number): string => valid(value) ? `${oneDecimal.format(value)} FPS` : '—';
+const frameRate = (value: number): string => valid(value) ? `${oneDecimal.format(value)} кадр/с` : '—';
 const percent = (value: number): string => valid(value) && value <= 1 ? `${oneDecimal.format(value * 100)}%` : '—';
 const ratio = (numerator: number | undefined, denominator: number | undefined): string =>
   numerator !== undefined && denominator !== undefined && valid(numerator)
@@ -43,7 +43,7 @@ export function renderBenchmarkSummary(report: BenchmarkSummaryInput): string {
     : 'GPU-таймер недоступен хотя бы для одного движка.';
   const fpsRows = report.animationFps?.supported
     ? report.animationFps.scenes.map(scene => `<tr><th>10<sup>${count(scene.startZoomPower10)}</sup></th>`
-      + `<td>${fps(scene.js.medianFps)}</td><td>${fps(scene.wasm.medianFps)}</td>`
+      + `<td>${frameRate(scene.js.medianFps)}</td><td>${frameRate(scene.wasm.medianFps)}</td>`
       + `<td>${percent(scene.js.ringActiveFraction)} / ${percent(scene.wasm.ringActiveFraction)}</td></tr>`).join('')
     : '';
   const cpuFrameRows = report.animationFps?.supported
@@ -62,9 +62,10 @@ export function renderBenchmarkSummary(report: BenchmarkSummaryInput): string {
   const fpsTable = fpsRows
     ? `<p>Полёт: ${count(report.settings.flightWidth)}×${count(report.settings.flightHeight)}, AA ${count(report.settings.aaSamples)}; `
       + `две серии на движок, скорость камеры 0,55 log10/с.</p>`
-      + `<table><caption>Реальные вызовы рендера на rAF</caption><thead><tr><th>Глубина</th><th>JS original</th>`
+      + `<table><caption>Отправка кадров</caption><thead><tr><th>Глубина</th><th>JS original</th>`
       + `<th>WASM</th><th>Кэш активен JS / WASM</th></tr></thead><tbody>${fpsRows}</tbody></table>`
-    : '<p>FPS полёта не измерен.</p>';
+      + '<p>Завершение GPU и показ на экране этим тестом не измеряются.</p>'
+    : '<p>Частота отправки кадров в полёте не измерена.</p>';
 
   return `<section class="benchmark-summary" aria-label="Сравнение движков">
     <h3>JS original + GPU и WASM SIMD + GPU</h3>
@@ -83,9 +84,9 @@ export function renderBenchmarkSummary(report: BenchmarkSummaryInput): string {
       + `отношение GPU JS/WASM ${gpuRatio}.</p>
     ${fpsTable}
     ${cpuFrameTable}
-    <p>FPS ограничен расписанием rAF; расчёт опорной орбиты во время полёта не повторяется. `
+    <p>Частота отправки кадров ограничена расписанием rAF; расчёт опорной орбиты во время полёта не повторяется. `
       + `В полёте исходный JS и WASM по-разному сглаживают кольцевой кэш: JS применяет исходную `
-      + `адаптивную плотность, WASM — сегментированный кэш плотности 1,5. Этот FPS сравнивает `
+      + `адаптивную плотность, WASM — сегментированный кэш плотности 1,5. Этот замер сравнивает `
       + `режимы как есть; одинаковые параметры качества и пиксели проверяются в полноэкранном GPU-тесте выше.</p>
   </section>`;
 }

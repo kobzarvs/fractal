@@ -5,7 +5,10 @@ export interface RuntimeState {
   ready: boolean; pending: boolean; lost: boolean; playing: boolean;
   preparing: boolean; playRequested: boolean;
   zoom: number; logScale: number; bits: number; path: string;
-  fps: number; cpuFrameMs: number; gpuMs: number | null;
+  /** Submission cadence retained for diagnostics; not the main GPU FPS display. */
+  fps: number;
+  gpuFps: number | null; gpuPendingFrames: number; gpuCompletionAgeMs: number | null;
+  cpuFrameMs: number; gpuMs: number | null;
   referenceMs: number; memoryBytes: number; frame: number;
   ringActive: boolean; drawCalls: number; uploadBytes: number;
 }

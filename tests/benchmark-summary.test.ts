@@ -37,7 +37,10 @@ test('summary compares worker computation and full response for the two engines'
   assert.match(html, /8,40 мс/);
   assert.match(html, /4,20 мс/);
   assert.match(html, /1334×1240|1 334×1 240/);
-  assert.match(html, /59,8 FPS/);
+  assert.match(html, /59,8 кадр\/с/);
+  assert.match(html, /<caption>Отправка кадров<\/caption>/);
+  assert.match(html, /Завершение GPU и показ на экране этим тестом не измеряются/);
+  assert.doesNotMatch(html, /\bFPS\b/);
   assert.match(html, /CPU на кадр: среднее \/ медиана \/ p95/);
   assert.match(html, /0,48 мс \/ 0,42 мс \/ 0,73 мс/);
   assert.match(html, /0,24 мс \/ 0,21 мс \/ 0,34 мс/);
@@ -55,7 +58,7 @@ test('summary states missing GPU timing and visible pixel differences', () => {
   });
   assert.match(html, /Пиксели полноэкранных кадров различаются/);
   assert.match(html, /GPU-таймер недоступен/i);
-  assert.match(html, /FPS полёта не измерен/i);
+  assert.match(html, /Частота отправки кадров в полёте не измерена/i);
 });
 
 test('CPU comparison uses the nonzero aggregate mean when timer quantization makes the median zero', () => {

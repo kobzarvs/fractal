@@ -27,6 +27,8 @@ async function harness(preparationSteps = 3) {
     exports = core; totalReferenceUploadBytes = 0; gpuTimeMs = null;
     refreshReferenceFromCore() { events.push('reference'); }
     cancelPreparation() {}
+    resetCompletedFrames() { events.push('reset-gpu-meter'); }
+    sampleCompletedFrames() { return { fps: null, pendingFrames: 0, completionAgeMs: null }; }
     renderCamera() {
       if (stats[12]) { stats[9]++; events.push('moving-frame'); }
       else { staticRemaining--; events.push('static-frame'); }
