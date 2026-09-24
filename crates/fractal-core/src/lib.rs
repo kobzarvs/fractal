@@ -1,6 +1,8 @@
 mod abi;
+mod camera;
 mod integer;
 mod kernel;
+mod render;
 
 #[cfg(test)]
 mod tests {

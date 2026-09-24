@@ -1,25 +1,17 @@
 import type { ReferenceRequest, ReferenceResult } from '../types.ts';
 import { abortError } from './protocol.ts';
+import { computeOnlyImports } from './wasm-imports.ts';
 
-type ResizableMemory = WebAssembly.Memory & { toResizableBuffer?: () => ArrayBuffer };
 export class MemoryViews {
   readonly memory: WebAssembly.Memory;
   readonly mode: 'resizable' | 'fixed';
-  private buffer: ArrayBuffer;
-  private bytesView: Uint8Array;
-  constructor(memory: WebAssembly.Memory, preferResizable = true) {
+  private readonly bytesView: Uint8Array;
+  constructor(memory: WebAssembly.Memory) {
     this.memory = memory;
-    const resizable = memory as ResizableMemory;
-    if (preferResizable && typeof resizable.toResizableBuffer === 'function') {
-      this.buffer = resizable.toResizableBuffer(); this.mode = 'resizable';
-    } else { this.buffer = memory.buffer; this.mode = 'fixed'; }
-    this.bytesView = new Uint8Array(this.buffer);
+    this.mode = 'fixed';
+    this.bytesView = new Uint8Array(memory.buffer);
   }
-  bytes(): Uint8Array {
-    // Fixed buffers detach even for grow(0); resizable buffers keep a length-tracking view.
-    if (this.memory.buffer !== this.buffer) { this.buffer = this.memory.buffer; this.bytesView = new Uint8Array(this.buffer); }
-    return this.bytesView;
-  }
+  bytes(): Uint8Array { return this.bytesView; }
   floats(pointer: number, length: number): Float32Array { return new Float32Array(this.bytes().buffer, pointer, length); }
 }
 interface CoreExports extends WebAssembly.Exports {
@@ -33,8 +25,8 @@ export class WasmCore {
   readonly views: MemoryViews;
   private core: CoreExports;
   private busy = false;
-  constructor(instance: WebAssembly.Instance, preferResizable = true) {
-    this.core = instance.exports as CoreExports; this.views = new MemoryViews(this.core.memory, preferResizable);
+  constructor(instance: WebAssembly.Instance) {
+    this.core = instance.exports as CoreExports; this.views = new MemoryViews(this.core.memory);
   }
   get memoryBytes(): number { return this.views.bytes().byteLength; }
   async compute(request: ReferenceRequest, cancelled = () => false, yieldControl = async () => {}, acquire?: (bytes: number) => ArrayBuffer): Promise<ReferenceResult> {
@@ -80,9 +72,9 @@ export async function loadWasm(): Promise<WasmCore> {
   // Streaming compilation avoids buffering when the server sends application/wasm.
   const fallback = response.clone();
   let instance: WebAssembly.Instance;
-  try { ({ instance } = await WebAssembly.instantiateStreaming(response, {})); }
+  try { ({ instance } = await WebAssembly.instantiateStreaming(response, computeOnlyImports())); }
   catch {
-    try { ({ instance } = await WebAssembly.instantiate(await fallback.arrayBuffer(), {})); }
+    try { ({ instance } = await WebAssembly.instantiate(await fallback.arrayBuffer(), computeOnlyImports())); }
     catch (error) {
       if (error instanceof WebAssembly.CompileError) throw new Error('Не удалось загрузить WASM SIMD. Выберите JavaScript или пересоберите ядро.');
       throw error;

@@ -28,6 +28,137 @@ impl Integer {
         self.negative = false;
     }
 
+    /// Copy into storage allocated during camera/kernel construction.
+    pub fn copy_from(&mut self, other: &Self) {
+        self.words[..other.len].copy_from_slice(&other.words[..other.len]);
+        self.len = other.len;
+        self.negative = other.negative;
+    }
+
+    pub fn set_u64(&mut self, value: u64) {
+        self.clear();
+        if value != 0 {
+            self.words[0] = value as u32;
+            self.len = 1;
+            if value >> 32 != 0 {
+                self.words[1] = (value >> 32) as u32;
+                self.len = 2;
+            }
+        }
+    }
+
+    pub fn set_negative(&mut self, negative: bool) {
+        self.negative = negative && self.len != 0;
+    }
+
+    pub fn append_decimal_digit(&mut self, digit: u8) -> Result<(), ()> {
+        if digit > 9 {
+            return Err(());
+        }
+        let mut carry = digit as u64;
+        for word in &mut self.words[..self.len] {
+            let value = *word as u64 * 10 + carry;
+            *word = value as u32;
+            carry = value >> 32;
+        }
+        if carry != 0 {
+            if self.len == self.words.len() {
+                return Err(());
+            }
+            self.words[self.len] = carry as u32;
+            self.len += 1;
+        }
+        Ok(())
+    }
+
+    /// Add to the magnitude, used for half-up rounding of positive decimal input.
+    pub fn add_small(&mut self, value: u32) -> Result<(), ()> {
+        let mut carry = value as u64;
+        let mut index = 0;
+        while carry != 0 {
+            if index == self.words.len() {
+                return Err(());
+            }
+            if index == self.len {
+                self.words[index] = 0;
+                self.len += 1;
+            }
+            let sum = self.words[index] as u64 + carry;
+            self.words[index] = sum as u32;
+            carry = sum >> 32;
+            index += 1;
+        }
+        Ok(())
+    }
+
+    /// Shift exactly in-place. Unlike resize/reserve this can never allocate.
+    pub fn shift_left(&mut self, bits: usize) -> Result<(), ()> {
+        if self.len == 0 || bits == 0 {
+            return Ok(());
+        }
+        let length = self.bit_length().checked_add(bits).ok_or(())?.div_ceil(32);
+        if length > self.words.len() {
+            return Err(());
+        }
+        let whole = bits / 32;
+        let part = bits % 32;
+        self.words.copy_within(..self.len, whole);
+        self.words[..whole].fill(0);
+        let old_end = self.len + whole;
+        let mut carry = 0;
+        if part != 0 {
+            for word in &mut self.words[whole..old_end] {
+                let next = *word >> (32 - part);
+                *word = (*word << part) | carry;
+                carry = next;
+            }
+        }
+        if carry != 0 {
+            self.words[old_end] = carry;
+        }
+        self.len = length;
+        Ok(())
+    }
+
+    /// Magnitude division, retaining sign and returning a nonnegative remainder.
+    pub fn divide_small(&mut self, divisor: u32) -> u32 {
+        assert_ne!(divisor, 0);
+        let mut remainder = 0u64;
+        for word in self.words[..self.len].iter_mut().rev() {
+            let value = (remainder << 32) | *word as u64;
+            *word = (value / divisor as u64) as u32;
+            remainder = value % divisor as u64;
+        }
+        self.normalize();
+        remainder as u32
+    }
+
+    /// Destructive decimal formatting for a caller-owned scratch integer.
+    pub fn write_decimal(&mut self, output: &mut [u8]) -> Result<usize, ()> {
+        let negative = self.negative;
+        if self.len == 0 {
+            *output.first_mut().ok_or(())? = b'0';
+            return Ok(1);
+        }
+        let mut length = 0;
+        while self.len != 0 {
+            let mut chunk = self.divide_small(1_000_000_000);
+            let mut digits = 0;
+            while digits < 9 && (self.len != 0 || chunk != 0) {
+                *output.get_mut(length).ok_or(())? = b'0' + (chunk % 10) as u8;
+                length += 1;
+                digits += 1;
+                chunk /= 10;
+            }
+        }
+        if negative {
+            *output.get_mut(length).ok_or(())? = b'-';
+            length += 1;
+        }
+        output[..length].reverse();
+        Ok(length)
+    }
+
     #[cfg(test)]
     pub fn parse(bytes: &[u8], capacity: usize) -> Result<Self, ()> {
         let mut value = Self::zero(capacity);
@@ -84,6 +215,12 @@ impl Integer {
         } else {
             1
         }
+    }
+
+    pub fn equals(&self, other: &Self) -> bool {
+        self.negative == other.negative
+            && self.len == other.len
+            && self.words[..self.len] == other.words[..other.len]
     }
 
     pub fn bit_length(&self) -> usize {

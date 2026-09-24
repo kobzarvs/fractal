@@ -18,7 +18,9 @@ if (optimizer.status !== 0) throw new Error('Install Binaryen (wasm-opt) before 
 const target = resolve(root, 'target/wasm-simd');
 run('cargo', ['build', '--locked', '--release', '-p', 'fractal-core', '--target', 'wasm32-unknown-unknown', '--target-dir', target], {
   ...process.env,
-  RUSTFLAGS: '-C target-feature=+simd128 -C link-arg=--initial-memory=2097152 -C link-arg=--max-memory=268435456',
+  // Fixed 256 MiB arena: reserve the entire configured capacity at startup.
+  // Browser/GPU views remain valid for the lifetime of the instance.
+  RUSTFLAGS: '-C target-feature=+simd128 -C link-arg=--initial-memory=268435456 -C link-arg=--max-memory=268435456',
 });
 const raw = resolve(target, 'wasm32-unknown-unknown/release/fractal_core.wasm');
 const binary = resolve(output, 'core-simd.wasm');

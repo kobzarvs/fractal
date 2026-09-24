@@ -115,3 +115,21 @@ pub extern "C" fn capacity() -> u32 {
 pub extern "C" fn last_error() -> i32 {
     STATE.lock().unwrap_or_else(|e| e.into_inner()).error
 }
+
+/// Start from runtime-owned camera bytes, without a JavaScript serialization copy.
+pub(crate) fn begin_from_bytes(
+    x: &[u8],
+    y: &[u8],
+    bits: usize,
+    iterations: usize,
+    fold: usize,
+    celtic: usize,
+) -> i32 {
+    let mut state = STATE.lock().unwrap_or_else(|e| e.into_inner());
+    let result = state
+        .kernel
+        .get_or_insert_with(Kernel::new)
+        .begin(x, y, bits, iterations, fold, celtic);
+    state.error = result.err().unwrap_or(0);
+    state.error
+}

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { WasmCore } from '../src/compute/wasm.ts';
+import { computeOnlyImports } from '../src/compute/wasm-imports.ts';
 import { computeReferenceJs } from '../src/compute/reference-js.ts';
 import type { ReferenceRequest, ReferenceResult } from '../src/types.ts';
 import { referenceCases } from './fixtures.ts';
@@ -11,8 +12,8 @@ const noYield = async () => {};
 
 async function core(): Promise<WasmCore> {
   const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
-  const { instance } = await WebAssembly.instantiate(binary, {});
-  return new WasmCore(instance, false);
+  const { instance } = await WebAssembly.instantiate(binary, computeOnlyImports());
+  return new WasmCore(instance);
 }
 
 function assertIdentical(actual: ReferenceResult, expected: ReferenceResult, label: string): void {
@@ -75,7 +76,7 @@ test('SIMD WASM matches the BigInt oracle byte-for-byte', async t => {
   }
 });
 
-test('SIMD WASM retains valid result views after memory growth and repeated runs', async () => {
+test('SIMD WASM retains the same fixed arena and exact results across repeated runs', async () => {
   const wasm = await core();
   const request = referenceCases.at(-1)!.request;
   const first = await wasm.compute(request, () => false, noYield);

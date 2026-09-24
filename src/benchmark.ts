@@ -1,10 +1,14 @@
-import { decimalToFixed } from './camera.ts';
+import { cameraOffset, decimalToFixed, fixedToNumber, setZoom } from './camera.ts';
+import type { Camera } from './camera.ts';
 import { computeReferenceJs } from './compute/reference-js.ts';
 import { ReferenceClient } from './compute/client.ts';
 import { probeCancellation } from './compute/cancellation-probe.ts';
 import { loadWasm } from './compute/wasm.ts';
 import type { WasmCore } from './compute/wasm.ts';
-import { FractalRenderer } from './gpu/renderer.ts';
+import { createRenderer } from './gpu/engine.ts';
+import { preloadRenderWasm } from './gpu/render-wasm.ts';
+import { WasmRenderer } from './gpu/wasm-renderer.ts';
+import type { RendererAdapter, RendererBackend } from './gpu/engine.ts';
 import { WESTERN_ARMADA } from './tours.ts';
 import type { ReferenceRequest, ReferenceResult, RenderView } from './types.ts';
 
@@ -12,9 +16,27 @@ const WARMUPS = 2, RUNS = 9, WIDTH = 320, HEIGHT = 200, AA = 2, ITERATIONS = 163
 const ARRAY_NAMES = ['orbit', 'realOrbit', 'blaA', 'blaB', 'blaBounds'] as const;
 const noYield = async () => {};
 const pause = (milliseconds = 0) => new Promise<void>(resolve => setTimeout(resolve, milliseconds));
+/** Consume the current rendering opportunity after a synchronous GPU drain.
+ * readPixels can block an already-started browser frame; its pending rAF still
+ * carries that old start timestamp. The measured callback must be the next one. */
+function animationClockBarrier(): Promise<void> {
+  if (document.hidden) return Promise.reject(new Error('Вкладка скрылась перед FPS замером.'));
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      cancelAnimationFrame(handle); reject(new Error('rAF не отдал кадр после прогрева за 3 секунды.'));
+    }, 3000);
+    const handle = requestAnimationFrame(() => {
+      clearTimeout(timeout);
+      if (document.hidden) reject(new Error('Вкладка скрылась перед FPS замером.'));
+      else resolve();
+    });
+  });
+}
+
 const summary = (samples: number[]) => {
   const sorted = [...samples].sort((a, b) => a - b);
-  return { runs: samples.length, medianMs: sorted[Math.floor(sorted.length / 2)],
+  const totalMs = samples.reduce((total, sample) => total + sample, 0);
+  return { runs: samples.length, totalMs, meanMs: totalMs / samples.length, medianMs: sorted[Math.floor(sorted.length / 2)],
     p95Ms: sorted[Math.ceil(sorted.length * .95) - 1], minMs: sorted[0], maxMs: sorted[sorted.length - 1], samplesMs: samples };
 };
 
@@ -174,13 +196,13 @@ function makeView(zoom: number | null, referenceKey: number): RenderView {
   };
 }
 
-function harness() {
+function harness(backend: RendererBackend, width = WIDTH, height = HEIGHT) {
   const canvas = document.createElement('canvas');
-  canvas.width = WIDTH; canvas.height = HEIGHT;
-  return { canvas, renderer: new FractalRenderer(canvas) };
+  canvas.width = width; canvas.height = height;
+  return { canvas, renderer: createRenderer(canvas, backend) };
 }
 
-async function gpuQuery(renderer: FractalRenderer, frame: number): Promise<number | null> {
+async function gpuQuery(renderer: RendererAdapter, frame: number): Promise<number | null> {
   if (!renderer.gpuTimerSupported) { await pause(); return null; }
   const deadline = performance.now() + 5000;
   do {
@@ -191,106 +213,295 @@ async function gpuQuery(renderer: FractalRenderer, frame: number): Promise<numbe
   return null; // Disjoint/timed-out queries cannot serve as GPU measurements.
 }
 
-async function gpuCase(renderer: FractalRenderer, zoom: number | null, js: ReferenceResult, wasm: ReferenceResult,
+async function gpuCase(renderers: Record<RendererBackend, RendererAdapter>, zoom: number | null,
+  references: Record<RendererBackend, ReferenceResult>,
   progress: (message: string) => void) {
   const name = zoom === null ? 'overview' : `western-armada-10^${zoom}`;
-  renderer.setReference(wasm);
+  for (const backend of ['js', 'wasm'] as const) renderers[backend].setReference(references[backend]);
   for (let round = 0; round < WARMUPS; round++) {
-    progress(`GPU ${name}: прогрев ${round + 1}/${WARMUPS}`);
-    renderer.render(makeView(zoom, wasm.id));
-    renderer.readPixels(); // Finish warmup/compilation before beginning the measured set.
-    await pause();
+    for (const backend of ['js', 'wasm'] as const) {
+      const renderer = renderers[backend];
+      progress(`GPU ${name}: прогрев ${round + 1}/${WARMUPS}, ${backend}`);
+      renderer.render(makeView(zoom, references[backend].id));
+      renderer.readPixels(); // Shader compilation and upload stay outside timed samples.
+      await pause();
+    }
   }
-  renderer.clearGpuTimings();
-  const samples: number[] = [];
+  for (const backend of ['js', 'wasm'] as const) renderers[backend].clearGpuTimings();
+  const samples = { js: [] as number[], wasm: [] as number[] };
   for (let round = 0; round < RUNS; round++) {
-    progress(`GPU ${name}: ${round + 1}/${RUNS}`);
-    renderer.render(makeView(zoom, wasm.id));
-    const elapsed = await gpuQuery(renderer, renderer.stats.frame);
-    if (elapsed !== null) samples.push(elapsed);
+    for (const backend of round % 2 ? ['wasm', 'js'] as const : ['js', 'wasm'] as const) {
+      const renderer = renderers[backend];
+      progress(`GPU ${name}: ${round + 1}/${RUNS}, ${backend}`);
+      renderer.render(makeView(zoom, references[backend].id));
+      const elapsed = await gpuQuery(renderer, renderer.stats.frame);
+      if (elapsed !== null) samples[backend].push(elapsed);
+    }
   }
-  renderer.render(makeView(zoom, wasm.id)); const wasmPixels = renderer.readPixels();
-  renderer.setReference(js);
-  renderer.render(makeView(zoom, js.id)); const jsPixels = renderer.readPixels();
+  const images = {} as Record<RendererBackend, Uint8Array>;
+  for (const backend of ['js', 'wasm'] as const) {
+    renderers[backend].render(makeView(zoom, references[backend].id));
+    images[backend] = renderers[backend].readPixels();
+  }
+  const jsPixels = images.js, wasmPixels = images.wasm;
   const jsVsWasmPixels = pixelDiff(jsPixels, wasmPixels);
-  const content = imageContent(wasmPixels);
-  const gpuTime = samples.length === RUNS ? summary(samples) : null;
+  const content = { js: imageContent(jsPixels), wasm: imageContent(wasmPixels) };
+  const gpuTime = { js: samples.js.length === RUNS ? summary(samples.js) : null,
+    wasm: samples.wasm.length === RUNS ? summary(samples.wasm) : null };
   await pause();
   return {
-    name, zoomPower10: zoom, path: renderer.stats.path, logScale: makeView(zoom, wasm.id).logScale,
-    jsVsWasmPixels, content, gpuTimerSupported: renderer.gpuTimerSupported,
-    gpuTime, gpuSamplesReceived: samples.length,
+    name, zoomPower10: zoom, mode: 'full-screen-spatial-aa', guided: false,
+    width: WIDTH, height: HEIGHT, aaSamples: AA, iterations: ITERATIONS,
+    path: { js: renderers.js.stats.path, wasm: renderers.wasm.stats.path },
+    logScale: makeView(zoom, references.wasm.id).logScale,
+    jsVsWasmPixels, content,
+    gpuTimerSupported: { js: renderers.js.gpuTimerSupported, wasm: renderers.wasm.gpuTimerSupported },
+    gpuTime, gpuSamplesReceived: { js: samples.js.length, wasm: samples.wasm.length },
+    gpuSpeedupVsJs: jsVsWasmPixels.equal && gpuTime.js && gpuTime.wasm
+      ? gpuTime.js.medianMs / gpuTime.wasm.medianMs : null,
   };
 }
 
-async function ringCase(renderer: FractalRenderer, js: ReferenceResult, wasm: ReferenceResult,
+const ANIMATION_START_ZOOM = 30, ANIMATION_END_ZOOM = 30.55, ANIMATION_DURATION_MS = 1000;
+interface AnimationSample { frames: number; intervals: number; elapsedMs: number; fps: number;
+  endZoomPower10: number; ringActiveFrames: number; ringResets: number; ringSamples: number;
+  warmupFrames: number; warmupRingActive: boolean; cpuFrame: ReturnType<typeof summary>;
+  maxRafGapMs: number; clampedRafTimeMs: number; expectedEndZoomPower10: number;
+  warmupDrainMs: number; firstFrameRafAgeMs: number; firstFrameTimestampMs: number; firstFrameCallbackNowMs: number;
+  firstTimestampBeforeDrainMs: number;
+  fallbackFrames: Array<{ frame: number; elapsedMs: number; rafGapMs: number; cpuMs: number }> }
+
+interface AnimationDriver {
+  start(zoom: number): void;
+  warmup(): void;
+  beginMeasurement(): void;
+  frame(timestamp: number): void;
+  stop(): void;
+  zoom(): number;
+}
+
+/** Exercise each engine's full camera/planner path. Both run serially under the
+ * same rAF clock here; the application's worker scheduling is not GPU time. */
+function animationDriver(renderer: RendererAdapter, reference: ReferenceResult): AnimationDriver {
+  if (renderer instanceof WasmRenderer) {
+    const core = renderer.exports, input = renderer.renderInput, stats = renderer.renderStats;
+    const command = (op: number, first = 0, second = 0) => {
+      input[40] = first; input[41] = second;
+      const status = core.render_camera_command(op);
+      if (status < 0) throw new Error(`WASM flight command ${op}: ${status}`);
+    };
+    input[3] = ITERATIONS; input[4] = AA; input[5] = 1; input[6] = 0; input[7] = 0;
+    input[16] = 1; input[17] = 1; input[18] = reference.id;
+    return {
+      start(zoom) { command(3, zoom); command(4, 1, zoom + 1); input[16] = 1; },
+      warmup() { renderer.renderCamera(0); },
+      beginMeasurement() { command(6); },
+      frame(timestamp) { renderer.renderCamera(timestamp); },
+      stop() { command(4, 0); },
+      zoom: () => stats[9],
+    };
+  }
+  const initial: Camera = { x: decimalToFixed(WESTERN_ARMADA.x, reference.bits),
+    y: decimalToFixed(WESTERN_ARMADA.y, reference.bits), bits: reference.bits, logScale: Math.log2(3.2) };
+  const camera = { ...initial };
+  let currentZoom = 0, previousTimestamp: number | null = null;
+  function renderCamera() {
+    const offset = cameraOffset(camera, initial);
+    renderer.render({ center: [fixedToNumber(camera.x, camera.bits), fixedToNumber(camera.y, camera.bits)],
+      scale: 2 ** camera.logScale, logScale: camera.logScale, offsetX: offset.x, offsetY: offset.y,
+      iterations: ITERATIONS, fold: 1, celtic: 0, aa: AA, hue: 0,
+      guided: true, temporal: true, referenceKey: reference.id, position: camera });
+  }
+  return {
+    start(zoom) { currentZoom = zoom; setZoom(camera, zoom); previousTimestamp = null; },
+    warmup: renderCamera,
+    beginMeasurement() { previousTimestamp = null; },
+    frame(timestamp) {
+      const elapsed = previousTimestamp === null ? 0 : Math.max(0, Math.min(.1, (timestamp - previousTimestamp) / 1000));
+      previousTimestamp = timestamp;
+      // Match the application camera recurrence, including the inverse zoom
+      // conversion, instead of giving JS a cheaper precomputed RenderView.
+      currentZoom = (Math.log2(3.2) - camera.logScale) / Math.log2(10) + elapsed * .55;
+      setZoom(camera, currentZoom); renderCamera();
+    },
+    stop() {},
+    zoom: () => currentZoom,
+  };
+}
+
+async function animationPass(renderer: RendererAdapter, driver: AnimationDriver, startZoom: number): Promise<AnimationSample> {
+  driver.start(startZoom);
+  let warmupFrames = 0;
+  for (; warmupFrames < 120; warmupFrames++) {
+    driver.warmup();
+    if (renderer.stats.ringActive) { warmupFrames++; break; }
+    await pause();
+  }
+  const drainStarted = performance.now();
+  renderer.readPixels(); // Drain warmup GPU work before timing rAF render calls.
+  const drainFinished = performance.now(), warmupDrainMs = drainFinished - drainStarted;
+  const warmupRingActive = renderer.stats.ringActive;
+  const before = { ...renderer.stats };
+  // Apply the same clock barrier to JS and WASM. No rendering or camera motion
+  // occurs here, and the warmed ring cache remains intact.
+  await animationClockBarrier();
+  driver.beginMeasurement(); // Reset only the clock, retaining the warmed cache.
+  return new Promise<AnimationSample>((resolve, reject) => {
+    let started: number | null = null, previousTimestamp: number | null = null;
+    let maxRafGapMs = 0, clampedRafTimeMs = 0, firstFrameRafAgeMs = 0, firstFrameTimestampMs = 0, firstFrameCallbackNowMs = 0;
+    const fallbackFrames: AnimationSample['fallbackFrames'] = [];
+    let frames = 0, ringActiveFrames = 0, handle = 0, finished = false;
+    const cpuFrames: number[] = [];
+    const fail = (error: Error) => {
+      if (finished) return;
+      finished = true; cancelAnimationFrame(handle); clearTimeout(watchdog); driver.stop(); reject(error);
+    };
+    const watchdog = setTimeout(() => fail(new Error('rAF не отдал кадры за 3 секунды.')), 3000);
+    const frame = (timestamp: number) => {
+      if (document.hidden) return fail(new Error('Вкладка скрылась во время FPS замера.'));
+      if (started === null) { firstFrameTimestampMs = timestamp; firstFrameCallbackNowMs = performance.now();
+        firstFrameRafAgeMs = firstFrameCallbackNowMs - timestamp; }
+      started ??= timestamp;
+      const elapsed = timestamp - started;
+      const rafGapMs = previousTimestamp === null ? 0 : timestamp - previousTimestamp;
+      previousTimestamp = timestamp; maxRafGapMs = Math.max(maxRafGapMs, rafGapMs);
+      clampedRafTimeMs += Math.max(0, rafGapMs - 100);
+      try {
+        const cpuStart = performance.now();
+        driver.frame(timestamp);
+        const cpuMs = performance.now() - cpuStart; cpuFrames.push(cpuMs);
+        frames++;
+        if (renderer.stats.ringActive) ringActiveFrames++;
+        else fallbackFrames.push({ frame: frames, elapsedMs: elapsed, rafGapMs, cpuMs });
+      } catch (error) { return fail(error instanceof Error ? error : new Error(String(error))); }
+      if (elapsed >= ANIMATION_DURATION_MS && frames > 1) {
+        try { renderer.readPixels(); } // Keep the next ABBA pass free of queued GPU work.
+        catch (error) { return fail(error instanceof Error ? error : new Error(String(error))); }
+        finished = true; clearTimeout(watchdog);
+        const endZoomPower10 = driver.zoom(); driver.stop();
+        resolve({ frames, intervals: frames - 1, elapsedMs: elapsed, fps: (frames - 1) * 1000 / elapsed,
+          endZoomPower10, ringActiveFrames, ringResets: renderer.stats.ringResets - before.ringResets,
+          ringSamples: renderer.stats.ringSamples - before.ringSamples,
+          warmupFrames, warmupRingActive, cpuFrame: summary(cpuFrames), maxRafGapMs, clampedRafTimeMs,
+          expectedEndZoomPower10: startZoom + .55 * elapsed / 1000, fallbackFrames, warmupDrainMs,
+          firstFrameRafAgeMs, firstFrameTimestampMs, firstFrameCallbackNowMs,
+          firstTimestampBeforeDrainMs: Math.max(0, drainFinished - firstFrameTimestampMs) });
+      } else handle = requestAnimationFrame(frame);
+    };
+    handle = requestAnimationFrame(frame);
+  });
+}
+
+async function animationCase(renderers: Record<RendererBackend, RendererAdapter>,
+  references: Record<RendererBackend, ReferenceResult>, width: number, height: number,
   progress: (message: string) => void) {
-  const images: Uint8Array[] = [];
+  const scene = { width, height, aaSamples: AA, iterations: ITERATIONS, referenceBits: 576,
+    zoomDeltaPower10: ANIMATION_END_ZOOM - ANIMATION_START_ZOOM,
+    zoomRateLog10PerSecond: .55, durationMs: ANIMATION_DURATION_MS, guided: true, clockBarrierAfterGpuDrain: true };
+  if (document.hidden) return { supported: false, reason: 'Вкладка скрыта', scenes: [], scene };
+  try {
+    renderers.js.setReference(references.js);
+    if (!(renderers.wasm instanceof WasmRenderer)) throw new Error('WASM flight requires the Rust render runtime.');
+    // Production setup: same instance computes the reference and uploads its
+    // linear-memory buffers to GPU. No worker result copies or RenderView loop.
+    await renderers.wasm.computeReferenceDirect(referenceRequest(references.wasm.id,
+      WESTERN_ARMADA.x, WESTERN_ARMADA.y, references.wasm.bits, ITERATIONS));
+    const drivers = { js: animationDriver(renderers.js, references.js), wasm: animationDriver(renderers.wasm, references.wasm) };
+    const scenes = [];
+    for (const startZoom of [30, 115]) {
+      const samples = { js: [] as AnimationSample[], wasm: [] as AnimationSample[] };
+      // ABBA order reduces drift from thermal state and browser scheduling.
+      for (const [index, backend] of (['js', 'wasm', 'wasm', 'js'] as const).entries()) {
+        progress(`FPS 10^${startZoom}: ${index + 1}/4, ${backend}`);
+        samples[backend].push(await animationPass(renderers[backend], drivers[backend], startZoom));
+      }
+      const summarize = (runs: AnimationSample[]) => ({ runs: runs.length,
+        medianFps: (runs[0].fps + runs[1].fps) / 2, samples: runs,
+        cpuFrame: summary(runs.flatMap(run => run.cpuFrame.samplesMs)),
+        ringActiveFraction: runs.reduce((n, run) => n + run.ringActiveFrames / run.frames, 0) / runs.length });
+      scenes.push({ startZoomPower10: startZoom, endZoomPower10: startZoom + scene.zoomDeltaPower10,
+        js: summarize(samples.js), wasm: summarize(samples.wasm) });
+    }
+    return { supported: true, reason: null, scenes, scene,
+      note: 'Serial ABBA, warmed caches retained. A shared rAF clock barrier after GPU drain excludes stale pre-drain frame timestamps. JS computes its camera and RenderView; WASM render_frame(mode=1) computes camera, cache and draw dispatch entirely in Rust. CPU frame time includes camera/planning/WebGL submission and excludes GPU completion/rAF wait. Both benchmark drivers run on the same thread; production WASM uses an OffscreenCanvas worker. Guided cache policies differ; FPS is refresh-rate limited.' };
+  } catch (error) {
+    return { supported: false, reason: error instanceof Error ? error.message : String(error), scenes: [], scene };
+  }
+}
+
+async function ringCase(renderers: Record<RendererBackend, RendererAdapter>,
+  references: Record<RendererBackend, ReferenceResult>,
+  progress: (message: string) => void) {
+  const images = {} as Record<RendererBackend, Uint8Array>;
   const variants = [];
-  for (const reference of [js, wasm]) {
+  for (const backend of ['js', 'wasm'] as const) {
+    const renderer = renderers[backend], reference = references[backend];
     renderer.setReference(reference);
     const view = { ...makeView(30, reference.id), guided: true };
     const initialRows = renderer.stats.ringsDrawn;
     let frames = 0;
     do {
-      progress(`Кольцевой кэш: ${reference.backend}, заполнение ${frames + 1}`);
+      progress(`Кольцевой кэш: ${backend}, заполнение ${frames + 1}`);
       renderer.render(view); frames++;
       await pause();
       if (frames >= 128 && !renderer.stats.ringActive) throw new Error('Кольцевой кэш не заполнился за 128 кадров при 320×200.');
     } while (!renderer.stats.ringActive);
-    images.push(renderer.readPixels());
+    images[backend] = renderer.readPixels();
     const fullRows = renderer.stats.ringsDrawn - initialRows;
     const beforeReuse = renderer.stats.ringsDrawn;
     renderer.render(view);
     const repeatedViewNewRows = renderer.stats.ringsDrawn - beforeReuse;
+    const repeatPixels = pixelDiff(images[backend], renderer.readPixels());
     const beforeZoom = renderer.stats.ringsDrawn, samplesBeforeZoom = renderer.stats.ringSamples;
     const zoomed = { ...view, logScale: view.logScale - .02, scale: view.scale * 2 ** -.02 };
     renderer.render(zoomed);
-    variants.push({ backend: reference.backend, initialFillFrames: frames, initialRows: fullRows,
+    variants.push({ backend, initialFillFrames: frames, initialRows: fullRows,
       repeatedViewNewRows, zeroWorkOnRepeatedView: repeatedViewNewRows === 0,
+      repeatPixels,
       zoomNewRows: renderer.stats.ringsDrawn - beforeZoom,
       zoomNewSamples: renderer.stats.ringSamples - samplesBeforeZoom,
       zoomReusedCache: renderer.stats.ringActive,
     });
     await pause();
   }
-  return { enabled: true, zoomPower10: 30, jsVsWasmPixels: pixelDiff(images[0], images[1]),
-    content: imageContent(images[1]), variants };
+  return { enabled: true, zoomPower10: 30, mode: 'guided-original-vs-segmented',
+    jsVsWasmPixels: pixelDiff(images.js, images.wasm),
+    content: { js: imageContent(images.js), wasm: imageContent(images.wasm) }, variants,
+    qualityNote: 'Original JS uses adaptive-density continuous rings and original assembly; WASM uses segmented 1.5-density rings. Cross-renderer pixels are informational.' };
 }
 
-type TemporalRenderer = FractalRenderer & { readonly settling: boolean; resetTemporal(): void };
 function temporalView(reference: ReferenceResult): RenderView {
   return { ...makeView(30, reference.id), aa: 3, temporal: true,
     position: { x: decimalToFixed(WESTERN_ARMADA.x, reference.bits), y: decimalToFixed(WESTERN_ARMADA.y, reference.bits), bits: reference.bits } };
 }
-async function settleTemporal(renderer: FractalRenderer, view: RenderView) {
-  const temporal = renderer as TemporalRenderer;
-  if (typeof temporal.resetTemporal !== 'function') throw new Error('Temporal AA: renderer.resetTemporal ещё недоступен.');
-  temporal.resetTemporal();
+async function settleTemporal(renderer: RendererAdapter, view: RenderView) {
+  renderer.resetTemporal();
   let frames = 0;
   do {
-    temporal.render(view); frames++; await pause();
+    renderer.render(view); frames++; await pause();
     if (frames > 32) throw new Error('Temporal AA не завершил накопление за 32 неподвижных кадра.');
-  } while (temporal.settling);
+  } while (renderer.settling);
   return frames;
 }
-async function temporalCase(renderer: FractalRenderer, js: ReferenceResult, wasm: ReferenceResult,
+async function temporalCase(renderers: Record<RendererBackend, RendererAdapter>,
+  references: Record<RendererBackend, ReferenceResult>,
   progress: (message: string) => void) {
-  if (!('resetTemporal' in renderer)) return { supported: false, reason: 'Temporal API pending', enabled: false, aaSamples: 3,
-    zoomPower10: 30, jsFrames: null, wasmFrames: null, resetFrames: null, settledAtRequestedSamples: false,
-    jsVsWasmPixels: null, repeatAfterReset: null, content: null };
   progress('Temporal AA: сравнение полностью накопленных кадров');
-  renderer.setReference(js);
-  const jsFrames = await settleTemporal(renderer, temporalView(js));
-  const jsPixels = renderer.readPixels();
-  renderer.setReference(wasm);
-  const wasmFrames = await settleTemporal(renderer, temporalView(wasm));
-  const wasmPixels = renderer.readPixels();
-  const resetFrames = await settleTemporal(renderer, temporalView(wasm));
-  return { supported: true, reason: null, enabled: true, aaSamples: 3, zoomPower10: 30, jsFrames, wasmFrames, resetFrames,
-    settledAtRequestedSamples: jsFrames === 3 && wasmFrames === 3 && resetFrames === 3,
-    jsVsWasmPixels: pixelDiff(jsPixels, wasmPixels),
-    repeatAfterReset: pixelDiff(wasmPixels, renderer.readPixels()), content: imageContent(wasmPixels) };
+  const images = {} as Record<RendererBackend, Uint8Array>;
+  const variants = [];
+  for (const backend of ['js', 'wasm'] as const) {
+    const renderer = renderers[backend], reference = references[backend];
+    renderer.setReference(reference);
+    const frames = await settleTemporal(renderer, temporalView(reference));
+    images[backend] = renderer.readPixels();
+    const resetFrames = await settleTemporal(renderer, temporalView(reference));
+    variants.push({ backend, frames, resetFrames, settledAtRequestedSamples: frames === 3 && resetFrames === 3,
+      repeatAfterReset: pixelDiff(images[backend], renderer.readPixels()) });
+  }
+  return { supported: true, enabled: true, aaSamples: 3, zoomPower10: 30, variants,
+    jsVsWasmPixels: pixelDiff(images.js, images.wasm),
+    content: { js: imageContent(images.js), wasm: imageContent(images.wasm) },
+    qualityNote: 'Within-renderer reset is a correctness check; cross-renderer temporal pixels are informational.' };
 }
 
 function contextEvent(canvas: HTMLCanvasElement, type: 'webglcontextlost' | 'webglcontextrestored') {
@@ -304,13 +515,14 @@ function contextEvent(canvas: HTMLCanvasElement, type: 'webglcontextlost' | 'web
   });
 }
 
-async function contextRestoreCase(reference: ReferenceResult, progress: (message: string) => void) {
-  const test = harness(); let renderer = test.renderer;
+async function contextRestoreCase(backend: RendererBackend, reference: ReferenceResult,
+  progress: (message: string) => void) {
+  const test = harness(backend); let renderer = test.renderer;
   const gl = test.canvas.getContext('webgl2')!;
   const extension = gl.getExtension('WEBGL_lose_context');
   try {
     if (!extension) return { supported: false, restored: null, pixels: null, temporalSupported: false, temporalPixels: null, temporalFrames: null, reason: 'WEBGL_lose_context недоступен' };
-    progress('GPU: проверка потери и восстановления контекста');
+    progress(`GPU ${backend}: проверка потери и восстановления контекста`);
     renderer.setReference(reference);
     const view = makeView(10, reference.id);
     renderer.render(view); const before = renderer.readPixels();
@@ -323,7 +535,7 @@ async function contextRestoreCase(reference: ReferenceResult, progress: (message
     await pause(50); extension.restoreContext(); await restored;
     // Match the app lifecycle: retire stale GPU handles after restoration.
     renderer.dispose();
-    renderer = new FractalRenderer(test.canvas);
+    renderer = createRenderer(test.canvas, backend);
     renderer.setReference(reference); renderer.render(view);
     const pixels = pixelDiff(before, renderer.readPixels());
     const afterFrames = temporalSupported ? await settleTemporal(renderer, temporalView(reference)) : null;
@@ -340,17 +552,25 @@ async function contextRestoreCase(reference: ReferenceResult, progress: (message
 
 /** Runs on a detached disposable canvas. CPU kernels, shader work and pixel
  * correctness are measured independently; rAF/event-loop cadence is never GPU time. */
-export async function runBenchmark(progress: (message: string) => void) {
+export async function runBenchmark(progress: (message: string) => void,
+  options: { flightWidth?: number; flightHeight?: number } = {}) {
+  const flightWidth = options.flightWidth ?? WIDTH, flightHeight = options.flightHeight ?? HEIGHT;
+  if (!Number.isSafeInteger(flightWidth) || flightWidth < 1
+    || !Number.isSafeInteger(flightHeight) || flightHeight < 1) {
+    throw new Error('Размер canvas для FPS сравнения должен быть положительным целым числом.');
+  }
   progress('Загрузка WASM SIMD для проверки…'); await pause();
-  const wasm = await loadWasm();
+  const [wasm] = await Promise.all([loadWasm(), preloadRenderWasm()]);
   const deep = await cpuCase('western-armada-576-16384', referenceRequest(7001, WESTERN_ARMADA.x, WESTERN_ARMADA.y, 576, ITERATIONS), wasm, progress);
   const interior = await cpuCase('interior-origin-128-1024', referenceRequest(7002, '0', '0', 128, 1024), wasm, progress);
   const worker = await workerCase(deep.js, deep.report, progress);
   progress('Raw Worker: проверка отмены до начала GPU измерений…');
   await pause();
   const cancellationProbe = await probeCancellation();
-  const { canvas, renderer } = harness();
-  const gl = canvas.getContext('webgl2')!;
+  const staticHarness = { js: harness('js'), wasm: harness('wasm') };
+  const renderers = { js: staticHarness.js.renderer, wasm: staticHarness.wasm.renderer };
+  const references = { js: deep.js, wasm: deep.wasm };
+  const gl = staticHarness.wasm.canvas.getContext('webgl2')!;
   const debugRenderer = gl.getExtension('WEBGL_debug_renderer_info');
   const gpuDevice = {
     vendor: String(gl.getParameter(debugRenderer ? debugRenderer.UNMASKED_VENDOR_WEBGL : gl.VENDOR)),
@@ -359,10 +579,18 @@ export async function runBenchmark(progress: (message: string) => void) {
   };
   try {
     const gpu = [];
-    for (const zoom of [null, 10, 30, 90, 120]) gpu.push(await gpuCase(renderer, zoom, deep.js, deep.wasm, progress));
-    const rings = await ringCase(renderer, deep.js, deep.wasm, progress);
-    const temporal = await temporalCase(renderer, deep.js, deep.wasm, progress);
-    const contextRestore = await contextRestoreCase(deep.wasm, progress);
+    for (const zoom of [null, 10, 30, 90, 120]) gpu.push(await gpuCase(renderers, zoom, references, progress));
+    const rings = await ringCase(renderers, references, progress);
+    const temporal = await temporalCase(renderers, references, progress);
+    const flightHarness = { js: harness('js', flightWidth, flightHeight),
+      wasm: harness('wasm', flightWidth, flightHeight) };
+    let animationFps;
+    try {
+      animationFps = await animationCase({ js: flightHarness.js.renderer, wasm: flightHarness.wasm.renderer },
+        references, flightWidth, flightHeight, progress);
+    } finally { flightHarness.js.renderer.dispose(); flightHarness.wasm.renderer.dispose(); }
+    const contextRestore = { js: await contextRestoreCase('js', deep.js, progress),
+      wasm: await contextRestoreCase('wasm', deep.wasm, progress) };
     const cpu = [deep.report, interior.report];
     const memoryBytesStable = cpu.every(item => item.wasm.memoryBytesStable)
       && worker.variants.every(item => item.memoryBytesStable) && worker.cancellation.memoryAfterRaceStable;
@@ -371,14 +599,16 @@ export async function runBenchmark(progress: (message: string) => void) {
     const rawCancellationChecksPassed = cancellationProbe.checks.passed;
     const exactReferenceArrays = cpu.every(item => item.exactArrays.equal);
     const exactGpuPixels = gpu.every(item => item.jsVsWasmPixels.equal);
-    const nontrivialGpuImages = gpu.every(item => item.content.nontrivialRGB);
-    const ringChecksPassed = rings.jsVsWasmPixels.equal && rings.content.nontrivialRGB
-      && rings.variants.every(item => item.zeroWorkOnRepeatedView && item.zoomNewRows > 0 && item.zoomReusedCache);
-    const temporalChecksPassed = temporal.supported && temporal.settledAtRequestedSamples && temporal.jsVsWasmPixels?.equal === true
-      && temporal.repeatAfterReset?.equal === true && temporal.content?.nontrivialRGB === true;
-    const contextRestorePassed = !contextRestore.supported || (contextRestore.restored === true && contextRestore.pixels?.equal === true
-      && (!contextRestore.temporalSupported || (contextRestore.temporalPixels?.equal === true
-        && contextRestore.temporalFrames?.before === 3 && contextRestore.temporalFrames?.after === 3)));
+    const nontrivialGpuImages = gpu.every(item => item.content.js.nontrivialRGB && item.content.wasm.nontrivialRGB);
+    const ringChecksPassed = rings.variants.every(item => item.zeroWorkOnRepeatedView && item.repeatPixels.equal
+      && item.zoomNewRows > 0 && item.zoomReusedCache);
+    const temporalChecksPassed = temporal.supported && temporal.variants.every(item =>
+      item.settledAtRequestedSamples && item.repeatAfterReset.equal)
+      && temporal.content.js.nontrivialRGB && temporal.content.wasm.nontrivialRGB;
+    const contextRestorePassed = Object.values(contextRestore).every(item => !item.supported
+      || (item.restored === true && item.pixels?.equal === true
+        && (!item.temporalSupported || (item.temporalPixels?.equal === true
+          && item.temporalFrames?.before === 3 && item.temporalFrames?.after === 3))));
     progress('Проверки завершены');
     return {
       kind: 'burning-ship-browser-benchmark', createdAt: new Date().toISOString(), userAgent: navigator.userAgent,
@@ -386,12 +616,15 @@ export async function runBenchmark(progress: (message: string) => void) {
       resizableMemory: { wasm: wasm.views.mode === 'resizable',
         wasmBufferResizable: (wasm.views.bytes().buffer as ArrayBuffer & { resizable?: boolean }).resizable ?? false },
       settings: { width: WIDTH, height: HEIGHT, aaSamples: AA, iterations: ITERATIONS, referenceBits: 576,
+        flightWidth, flightHeight,
         warmups: WARMUPS, measuredRuns: RUNS,
         cpuTiming: 'performance.now; no scheduler yields inside compute', gpuTiming: 'EXT_disjoint_timer_query_webgl2; null when unavailable',
         pixelFormat: 'RGBA8', canvasAttached: false },
-      memoryBytesStable, checks: { exactReferenceArrays, exactGpuPixels, nontrivialGpuImages, ringChecksPassed, temporalChecksPassed, contextRestorePassed, workerChecksPassed, rawCancellationChecksPassed,
-        passed: memoryBytesStable && exactReferenceArrays && exactGpuPixels && nontrivialGpuImages && ringChecksPassed && temporalChecksPassed && contextRestorePassed && workerChecksPassed && rawCancellationChecksPassed },
-      cpu, worker, cancellationProbe, gpu, rings, temporal, contextRestore,
+      memoryBytesStable, checks: { exactReferenceArrays, exactGpuPixels, fullScreenPixelsEqual: exactGpuPixels,
+        nontrivialGpuImages, ringChecksPassed, temporalChecksPassed, contextRestorePassed, workerChecksPassed, rawCancellationChecksPassed,
+        passed: memoryBytesStable && exactReferenceArrays && exactGpuPixels && nontrivialGpuImages && ringChecksPassed
+          && temporalChecksPassed && contextRestorePassed && workerChecksPassed && rawCancellationChecksPassed },
+      cpu, worker, cancellationProbe, gpu, rings, temporal, animationFps, contextRestore,
     };
-  } finally { renderer.dispose(); }
+  } finally { renderers.js.dispose(); renderers.wasm.dispose(); }
 }

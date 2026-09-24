@@ -1,0 +1,287 @@
+{
+  "kind": "burning-ship-zoom-profile",
+  "createdAt": "2026-09-24T21:04:03.223Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "options": {
+    "width": 1280,
+    "height": 720,
+    "aa": 2,
+    "iterations": 16384
+  },
+  "reference": {
+    "bits": 576,
+    "iterations": 16384,
+    "length": 12807,
+    "computeMs": 19.099999994039536,
+    "uploads": 1
+  },
+  "gpuTimerSupported": true,
+  "maxTextureSize": 16384,
+  "cacheLayout": {
+    "available": true,
+    "width": 6931,
+    "height": 1936,
+    "texels": 13418416,
+    "bands": 11
+  },
+  "warmupGpuDrained": true,
+  "clockBarrierAfterGpuDrain": true,
+  "depths": [
+    {
+      "depth": 30,
+      "path": "fe",
+      "coldFlight": null,
+      "warmup": {
+        "frames": 25,
+        "ringActive": true,
+        "ringResets": 1,
+        "ringSamples": 11559138,
+        "skippedNoLayout": false
+      },
+      "flight": {
+        "targetDurationMs": 2000,
+        "elapsedMs": 2000,
+        "startZoomPower10": 30,
+        "endZoomPower10": 31.100000000000406,
+        "zoomRateLog10PerSecond": 0.55,
+        "maxFrameDeltaSeconds": 0.1,
+        "frames": 721,
+        "intervals": 720,
+        "fps": 360,
+        "ringActiveFrames": 721,
+        "totalFrames": 721,
+        "ringActiveFraction": 1,
+        "ringResets": 0,
+        "ringSamples": 25824451,
+        "ringFrames": 721,
+        "referenceUploads": 0,
+        "cpu": {
+          "samples": 721,
+          "medianMs": 0,
+          "p95Ms": 0.10000002384185791,
+          "minMs": 0,
+          "maxMs": 0.20000001788139343
+        },
+        "gpu": {
+          "samples": 720,
+          "medianMs": 0.948125,
+          "p95Ms": 1.20075,
+          "minMs": 0.288375,
+          "maxMs": 2.369249
+        },
+        "gpuSamplesReceived": 720
+      },
+      "fullScreen": {
+        "frames": 3,
+        "gpu": {
+          "samples": 3,
+          "medianMs": 6.669208,
+          "p95Ms": 7.827916,
+          "minMs": 6.654999,
+          "maxMs": 7.827916
+        },
+        "gpuSamplesReceived": 3
+      }
+    },
+    {
+      "depth": 60,
+      "path": "fe",
+      "coldFlight": null,
+      "warmup": {
+        "frames": 25,
+        "ringActive": true,
+        "ringResets": 1,
+        "ringSamples": 11559138,
+        "skippedNoLayout": false
+      },
+      "flight": {
+        "targetDurationMs": 2000,
+        "elapsedMs": 2000.0999999999985,
+        "startZoomPower10": 60,
+        "endZoomPower10": 61.10005499999873,
+        "zoomRateLog10PerSecond": 0.55,
+        "maxFrameDeltaSeconds": 0.1,
+        "frames": 721,
+        "intervals": 720,
+        "fps": 359.98200089995527,
+        "ringActiveFrames": 721,
+        "totalFrames": 721,
+        "ringActiveFraction": 1,
+        "ringResets": 0,
+        "ringSamples": 25831382,
+        "ringFrames": 721,
+        "referenceUploads": 0,
+        "cpu": {
+          "samples": 721,
+          "medianMs": 0,
+          "p95Ms": 0.10000002384185791,
+          "minMs": 0,
+          "maxMs": 0.29999998211860657
+        },
+        "gpu": {
+          "samples": 720,
+          "medianMs": 0.9180825,
+          "p95Ms": 1.290375,
+          "minMs": 0.288666,
+          "maxMs": 2.592375
+        },
+        "gpuSamplesReceived": 720
+      },
+      "fullScreen": {
+        "frames": 3,
+        "gpu": {
+          "samples": 3,
+          "medianMs": 7.095374,
+          "p95Ms": 7.66525,
+          "minMs": 7.030208,
+          "maxMs": 7.66525
+        },
+        "gpuSamplesReceived": 3
+      }
+    },
+    {
+      "depth": 90,
+      "path": "fe",
+      "coldFlight": null,
+      "warmup": {
+        "frames": 25,
+        "ringActive": true,
+        "ringResets": 1,
+        "ringSamples": 11559138,
+        "skippedNoLayout": false
+      },
+      "flight": {
+        "targetDurationMs": 2000,
+        "elapsedMs": 2000,
+        "startZoomPower10": 90,
+        "endZoomPower10": 91.09999999999995,
+        "zoomRateLog10PerSecond": 0.55,
+        "maxFrameDeltaSeconds": 0.1,
+        "frames": 721,
+        "intervals": 720,
+        "fps": 360,
+        "ringActiveFrames": 721,
+        "totalFrames": 721,
+        "ringActiveFraction": 1,
+        "ringResets": 0,
+        "ringSamples": 25824451,
+        "ringFrames": 721,
+        "referenceUploads": 0,
+        "cpu": {
+          "samples": 721,
+          "medianMs": 0,
+          "p95Ms": 0.10000002384185791,
+          "minMs": 0,
+          "maxMs": 0.19999998807907104
+        },
+        "gpu": {
+          "samples": 720,
+          "medianMs": 0.7840205,
+          "p95Ms": 0.934874,
+          "minMs": 0.295625,
+          "maxMs": 2.418124
+        },
+        "gpuSamplesReceived": 720
+      },
+      "fullScreen": {
+        "frames": 3,
+        "gpu": {
+          "samples": 3,
+          "medianMs": 6.701791,
+          "p95Ms": 7.014958,
+          "minMs": 6.574166,
+          "maxMs": 7.014958
+        },
+        "gpuSamplesReceived": 3
+      }
+    },
+    {
+      "depth": 115,
+      "path": "fe",
+      "coldFlight": {
+        "targetDurationMs": 2000,
+        "elapsedMs": 2002.7000000000044,
+        "startZoomPower10": 115,
+        "endZoomPower10": 116.101485,
+        "zoomRateLog10PerSecond": 0.55,
+        "maxFrameDeltaSeconds": 0.1,
+        "frames": 657,
+        "intervals": 656,
+        "fps": 327.5577969740843,
+        "ringActiveFrames": 631,
+        "totalFrames": 657,
+        "ringActiveFraction": 0.9604261796042618,
+        "ringResets": 1,
+        "ringSamples": 37169342,
+        "ringFrames": 631,
+        "referenceUploads": 0,
+        "cpu": {
+          "samples": 657,
+          "medianMs": 0,
+          "p95Ms": 0.10000002384185791,
+          "minMs": 0,
+          "maxMs": 0.20000001788139343
+        },
+        "gpu": {
+          "samples": 614,
+          "medianMs": 0.9357074999999999,
+          "p95Ms": 10.478041,
+          "minMs": 0.701375,
+          "maxMs": 174.49375
+        },
+        "gpuSamplesReceived": 614
+      },
+      "warmup": {
+        "frames": 33,
+        "ringActive": true,
+        "ringResets": 0,
+        "ringSamples": 11559030,
+        "skippedNoLayout": false
+      },
+      "flight": {
+        "targetDurationMs": 2000,
+        "elapsedMs": 2000,
+        "startZoomPower10": 115,
+        "endZoomPower10": 116.09999999999941,
+        "zoomRateLog10PerSecond": 0.55,
+        "maxFrameDeltaSeconds": 0.1,
+        "frames": 721,
+        "intervals": 720,
+        "fps": 360,
+        "ringActiveFrames": 721,
+        "totalFrames": 721,
+        "ringActiveFraction": 1,
+        "ringResets": 0,
+        "ringSamples": 25824451,
+        "ringFrames": 721,
+        "referenceUploads": 0,
+        "cpu": {
+          "samples": 721,
+          "medianMs": 0,
+          "p95Ms": 0.10000002384185791,
+          "minMs": 0,
+          "maxMs": 0.20000001788139343
+        },
+        "gpu": {
+          "samples": 720,
+          "medianMs": 0.9228540000000001,
+          "p95Ms": 1.203374,
+          "minMs": 0.293291,
+          "maxMs": 1.51075
+        },
+        "gpuSamplesReceived": 720
+      },
+      "fullScreen": {
+        "frames": 3,
+        "gpu": {
+          "samples": 3,
+          "medianMs": 7.640875,
+          "p95Ms": 7.941375,
+          "minMs": 7.569124,
+          "maxMs": 7.941375
+        },
+        "gpuSamplesReceived": 3
+      }
+    }
+  ]
+}

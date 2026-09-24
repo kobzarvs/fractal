@@ -1,33 +1,39 @@
 // Polar ring layout adapted from https://newton-fractal.pages.dev/ (rings.ts).
-// Retain 1.5x angular/radial sampling. If it does not fit, use the full renderer.
+// Retain 1.5x angular/radial sampling. Split wide angular bands into strips.
 export interface RingBand {
-  x: number; row: number; angles: number; step: number; rings: number;
+  x: number; row: number; angles: number; columns: number; strips: number; step: number; rings: number;
   radius: number; outwards: number; inwards: number;
   window: [number, number] | null;
 }
 export interface RingLayout { bands: RingBand[]; width: number; height: number }
 const DENSITY = 1.5;
-const MAX_TEXELS = 24_000_000;
 
 export function createRingLayout(width: number, height: number, maxTextureSize: number): RingLayout | null {
+  if (![width, height, maxTextureSize].every(Number.isSafeInteger) ||
+      width <= 0 || height <= 0 || maxTextureSize <= 0) return null;
   const radii = [Math.hypot(width, height) / 2 + 1];
   while (radii.length < 16 && radii[radii.length - 1] > 1) radii.push(radii[radii.length - 1] / 2);
   let x = 0, row = 0, rowHeight = 0, textureWidth = 0;
-  const bands = radii.map((radius, index): RingBand => {
+  const bands: RingBand[] = [];
+  for (const [index, radius] of radii.entries()) {
     const angles = Math.max(16, Math.ceil(2 * Math.PI * radius * DENSITY));
+    if (!Number.isSafeInteger(angles)) return null;
+    const strips = Math.ceil(angles / maxTextureSize);
+    const columns = Math.ceil(angles / strips);
     const step = 2 * Math.PI / angles / Math.LN2;
     const outwards = index > 0 ? 0.5 : 0;
     const inwards = index < radii.length - 1 ? 0.5 : 0;
     const rings = Math.ceil((1 + outwards + inwards) / step) + 7;
-    textureWidth ||= angles;
-    if (x + angles > textureWidth) { row += rowHeight; x = 0; rowHeight = 0; }
-    const band = { x, row, angles, step, rings, radius, outwards, inwards, window: null };
-    x += angles;
-    rowHeight = Math.max(rowHeight, rings);
-    return band;
-  });
+    const physicalHeight = rings * strips;
+    if (!Number.isSafeInteger(physicalHeight) || physicalHeight > maxTextureSize) return null;
+    textureWidth ||= columns;
+    if (x + columns > textureWidth) { row += rowHeight; x = 0; rowHeight = 0; }
+    bands.push({ x, row, angles, columns, strips, step, rings, radius, outwards, inwards, window: null });
+    x += columns;
+    rowHeight = Math.max(rowHeight, physicalHeight);
+  }
   const textureHeight = row + rowHeight;
-  if (textureWidth > maxTextureSize || textureHeight > maxTextureSize || textureWidth * textureHeight > MAX_TEXELS) return null;
+  if (textureWidth > maxTextureSize || textureHeight > maxTextureSize) return null;
   return { bands, width: textureWidth, height: textureHeight };
 }
 

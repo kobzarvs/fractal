@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { performance } from 'node:perf_hooks';
 import { WasmCore } from '../src/compute/wasm.ts';
+import { computeOnlyImports } from '../src/compute/wasm-imports.ts';
 import { computeReferenceJs } from '../src/compute/reference-js.ts';
 import { referenceCases } from '../tests/fixtures.ts';
 
@@ -17,8 +18,8 @@ if (cases.length === 0) throw new Error(`Unknown fixture: ${caseOption}`);
 
 async function loadCore() {
   const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
-  const { instance } = await WebAssembly.instantiate(binary, {});
-  return new WasmCore(instance, false);
+  const { instance } = await WebAssembly.instantiate(binary, computeOnlyImports());
+  return new WasmCore(instance);
 }
 
 function assertSame(actual, expected, label) {

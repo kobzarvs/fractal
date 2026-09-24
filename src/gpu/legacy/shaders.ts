@@ -1,6 +1,22 @@
-// Adapted from https://newton-fractal.pages.dev/ (ship material/perturbation/rings).
-// FE operation order, branch boundaries, escape radius and smooth metric are preserved.
-// No fast-math, reduced precision, reduced iteration budgets or lower AA counts.
+/**
+ * Frozen Burning Ship shader text from the published original JavaScript build:
+ * https://newton-fractal.pages.dev/assets/index-Dp_pt8ok.js
+ * Retrieved 2026-09-24; bundle SHA-256:
+ * 1df470c9f446011340a64eb307e2fee7e408c6520d43cd8fcada23f05954b2c6
+ *
+ * The five original template literal bodies below are preserved byte-for-byte.
+ * This is an adapter of the original shaders, NOT the unmodified original app.
+ * Changes are limited to WebGL 2 interfaces: version/precision/define preamble,
+ * varying -> in plus fragment output, gl_FragColor -> fragmentColour, and
+ * texture2D -> texture. A fullscreen triangle supplies the plane's vUv input.
+ * Original FE/native transition, carried orbit reads, texelFetch, float-log2 BLA
+ * alignment, palette/visibility alpha, and single-pass ring assembly remain.
+ * No SHIP_OPTIMIZED/SHIP_FULL branches, extra orbit reads, strip addressing,
+ * ring AA loop, or changes to numerical expressions are introduced here.
+ * Hue was an original post-composite operation; it is not injected in shipColour.
+ * See THIRD_PARTY_NOTICES.md for provenance and licensing context.
+ */
+
 export const vertexShader = `#version 300 es
 precision highp float;
 out vec2 vUv;
@@ -11,38 +27,45 @@ void main() {
 }
 `;
 
-const shipSource = `precision highp float;
-precision highp int;
+// Original Eg; UTF-8 SHA-256 14d662f1f6d8b0c08dd43e03300c291ff65da732e0a005b284500bd4e086141c
+const originalShip = `precision highp float;
 
-in vec2 vUv;
-out vec4 fragmentColour;
+varying vec2 vUv;
 uniform vec2 center;
 uniform float scale;
 uniform float fold;
 uniform float celtic;
-uniform float hue;
 uniform float aspect;
 uniform vec2 res;
 uniform float aa;
 uniform vec2 jitter;
 uniform int iterations;
 
-#define SHIP_LOOP_LIMIT iterations
+#include <ship_batch>
 
+float shipIterationMetric = 0.0;
+#if !defined(SHIP_PROBE) && !defined(SHIP_BATCH_STEPS)
+#include <ship_veil>
+#endif
 
 vec3 shipColour(float smoothIteration) {
-    // Keep the original expression tree for the default palette. Adding even
-    // a zero uniform changes GPU contraction/rounding at RGBA8 boundaries.
-#ifdef SHIP_SHIFT_HUE
-    vec3 colour = 0.5 + 0.5 * cos(0.18 * smoothIteration + hue + vec3(0.0, 0.7, 1.5));
+    shipIterationMetric = smoothIteration;
+#ifdef SHIP_PROBE
+    float value = clamp(floor(smoothIteration * 16.0), 1.0, 16777215.0);
+    return vec3(mod(value, 256.0), mod(floor(value / 256.0), 256.0), floor(value / 65536.0)) / 255.0;
 #else
     vec3 colour = 0.5 + 0.5 * cos(0.18 * smoothIteration + vec3(0.0, 0.7, 1.5));
-#endif
     return colour * (0.3 + 0.7 * (1.0 - exp(-0.08 * smoothIteration)));
+#endif
 }
 
 vec3 shipInterior() {
+    shipIterationMetric = 0.0;
+#ifdef SHIP_PROBE
+    return vec3(0.0);
+#else
     return vec3(0.006, 0.008, 0.012);
+#endif
 }
 
 #ifdef SHIP_RING
@@ -63,6 +86,10 @@ vec3 sampleShipDirect(vec2 uv) {
     vec2 c = center + shipOffset(uv) * scale;
     vec2 z = vec2(0.0);
     int iteration = 0;
+#ifdef SHIP_BATCH_STEPS
+    z = savedDelta.xy;
+    iteration = savedIndex.y;
+#endif
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
         if (iteration >= iterations) break;
         int i = iteration++;
@@ -76,10 +103,87 @@ vec3 sampleShipDirect(vec2 uv) {
             return shipColour(smoothIteration);
         }
     }
+#ifdef SHIP_BATCH_STEPS
+    if (iteration < iterations) suspendShip(vec4(z, 0.0, 0.0), 0, iteration);
+#endif
     return shipInterior();
 }
 
-// Extended-range numbers: normalized mantissa and a separate binary exponent.
+#include <ship_perturbation>
+
+void main() {
+#ifdef SHIP_BATCH_STEPS
+    savedDelta = vec4(0.0);
+    savedIndex = ivec2(0);
+    if (firstBatch < 0.5) {
+        savedDelta = texture2D(previousDelta, gl_FragCoord.xy / stateSize);
+        vec4 status = texture2D(previousStatus, gl_FragCoord.xy / stateSize);
+        // Completed pixels carry their colour through the remaining passes.
+        if (status.z > 0.5) {
+            nextDelta = savedDelta;
+            nextStatus = status;
+            return;
+        }
+        savedIndex = ivec2(status.xy);
+    }
+    vec3 colour = sampleShip(vUv + jitter / res);
+    if (!suspended) {
+        nextDelta = vec4(colour, shipIterationMetric);
+        nextStatus = vec4(0.0, 0.0, 1.0, 0.0);
+    }
+#elif defined(SHIP_PROBE) || defined(SHIP_RING)
+    gl_FragColor = vec4(sampleShip(vUv), 1.0);
+#else
+    vec3 colour = vec3(0.0);
+    float metric = 0.0;
+    for (int i = 0; i < 5; i++) {
+        if (float(i) >= aa) break;
+        vec2 offset = aa < 1.5 ? vec2(0.0) :
+            vec2((float(i) + 0.5) / aa - 0.5, fract((float(i) + 0.5) * 0.61803398875) - 0.5);
+        colour += sampleShip(vUv + (offset + jitter) / res);
+        metric += shipIterationMetric;
+    }
+    gl_FragColor = vec4(colour / aa, shipVisibility(metric / aa));
+#endif
+}
+`;
+
+// Original Og; UTF-8 SHA-256 0bf26fa40b01f8e0cad5c6a5b194ae736c3d31466f6a67deff2684dd21137501
+const originalBatch = `#ifdef SHIP_BATCH_STEPS
+uniform highp sampler2D previousDelta;
+uniform highp sampler2D previousStatus;
+uniform vec2 stateSize;
+uniform float firstBatch;
+layout(location = 0) out highp vec4 nextDelta;
+layout(location = 1) out highp vec4 nextStatus;
+vec4 savedDelta;
+ivec2 savedIndex;
+bool suspended = false;
+int work = 0;
+
+void suspendShip(vec4 delta, int referenceIndex, int iteration) {
+    nextDelta = delta;
+    nextStatus = vec4(float(referenceIndex), float(iteration), 0.0, 0.0);
+    suspended = true;
+}
+#define SHIP_LOOP_LIMIT SHIP_BATCH_STEPS
+#else
+#define SHIP_LOOP_LIMIT iterations
+#endif
+`;
+
+// Original sg; UTF-8 SHA-256 0cbfd31bb2e964bf5cb486d6522cbf29aa5c0d0d2df300f7e7614b2e9d41e4f8
+const originalVisibility = `// Screen-space estimate: a pixel spanning a substantial palette period is
+// unresolved. Evaluate derivatives only AFTER all orbit branches reconverge,
+// or in the batch copy pass. No per-iteration derivative state or extra draws.
+float shipVisibility(float smoothIteration) {
+    float phaseSpan = 0.18 * fwidth(smoothIteration);
+    return 1.0 - smoothstep(1.5707963, 6.2831853, phaseSpan);
+}
+`;
+
+// Original Dg; UTF-8 SHA-256 3a0d32665734664187fa85d0815618f397c39175bd9e1dab4e672f176fd48c93
+const originalPerturbation = `// Extended-range numbers: normalized mantissa and a separate binary exponent.
 // Deltas retain their range even when the view is smaller than 1e-1000.
 // Sampler precision controls Float32 reads independently of highp float.
 // Mobile lowp reads can round the orbit or lose the BLA matrices/error bounds.
@@ -151,16 +255,9 @@ ivec2 blaAt(int index, int level) {
     return ivec2(block % SHIP_REFERENCE_WIDTH, block / SHIP_REFERENCE_WIDTH);
 }
 // The longest aligned block that may start at a positive index within the
-// budget. Integer trailing-zero count gives the exact power-of-two alignment.
+// budget. The lowest set bit is the alignment; its logarithm is exact.
 int blaTopLevel(int index, int iteration) {
-    uint bits = uint(index);
-    int level = 0;
-    if ((bits & 65535u) == 0u) { level += 16; bits >>= 16; }
-    if ((bits & 255u) == 0u) { level += 8; bits >>= 8; }
-    if ((bits & 15u) == 0u) { level += 4; bits >>= 4; }
-    if ((bits & 3u) == 0u) { level += 2; bits >>= 2; }
-    if ((bits & 1u) == 0u) level++;
-    level = min(SHIP_BLA_LEVELS, level);
+    int level = min(SHIP_BLA_LEVELS, int(log2(float(index & -index)) + 0.5));
     while (level > 0 && (index + (1 << level) >= referenceLength || iteration + (1 << level) > iterations))
         level--;
     return level;
@@ -227,6 +324,9 @@ bool continueShipFloat(inout vec2 d, inout int m, inout int n, vec2 dc, out vec3
             colour = shipInterior();
             return true;
         }
+#ifdef SHIP_BATCH_STEPS
+        if (work >= SHIP_BATCH_STEPS) break;
+#endif
         if ((rfe.x != 0.0 && rfe.y < -60.0) || (rfe.z != 0.0 && rfe.w < -60.0)) break;
         if (celtic > 0.0) {
             vec2 q = realAt(m);
@@ -251,6 +351,9 @@ bool continueShipFloat(inout vec2 d, inout int m, inout int n, vec2 dc, out vec3
         rfe = rebase ? vec4(0.0) : nextR;
         r = rebase ? vec2(0.0) : nextRValue;
         n++;
+#ifdef SHIP_BATCH_STEPS
+        work++;
+#endif
     }
     return false;
 }
@@ -263,10 +366,19 @@ vec3 sampleShipPerturbed(vec2 uv) {
     vec2 dx = vec2(0.0), dy = vec2(0.0);
     int referenceIndex = 0;
     int iteration = 0;
+#ifdef SHIP_BATCH_STEPS
+    dx = savedDelta.xy;
+    dy = savedDelta.zw;
+    referenceIndex = savedIndex.x;
+    iteration = savedIndex.y;
+#endif
     // The reference at referenceIndex, carried between steps.
     vec4 reference = orbitAt(referenceIndex);
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
         if (iteration >= iterations) break;
+#ifdef SHIP_BATCH_STEPS
+        if (work >= SHIP_BATCH_STEPS) break;
+#endif
         if (min(dx.y, dy.y) > -50.0 && max(dx.y, dy.y) > -40.0 && dx.x != 0.0 && dy.x != 0.0) {
             vec2 d = vec2(valueFE(dx), valueFE(dy));
             // Underflowed dc is negligible for accepted native results, but
@@ -277,6 +389,9 @@ vec3 sampleShipPerturbed(vec2 uv) {
             dx = numberFE(d.x);
             dy = numberFE(d.y);
             reference = orbitAt(referenceIndex);
+#ifdef SHIP_BATCH_STEPS
+            if (iteration >= iterations || work >= SHIP_BATCH_STEPS) break;
+#endif
         }
         bool skipped = false;
         // Try the longest aligned block first; each is valid only if its first
@@ -333,7 +448,14 @@ vec3 sampleShipPerturbed(vec2 uv) {
             referenceIndex = 0;
             reference = vec4(0.0);
         }
+#ifdef SHIP_BATCH_STEPS
+        work++;
+#endif
     }
+#ifdef SHIP_BATCH_STEPS
+    if (iteration < iterations)
+        suspendShip(vec4(dx, dy), referenceIndex, iteration);
+#endif
     return shipInterior();
 }
 
@@ -347,6 +469,11 @@ vec3 sampleShipFloat(vec2 uv) {
     float dcLog = log2(max(abs(dc.x), abs(dc.y)));
     vec2 d = vec2(0.0);
     int m = 0, n = 0;
+#ifdef SHIP_BATCH_STEPS
+    d = savedDelta.xy;
+    m = savedIndex.x;
+    n = savedIndex.y;
+#endif
     // The reference at m, carried from the previous step's escape check.
     vec2 r = orbitFloat(m);
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
@@ -381,10 +508,13 @@ vec3 sampleShipFloat(vec2 uv) {
         if (radius2 > 65536.0) return shipColour(float(n) + 1.0 - log2(log2(radius2) * 0.5));
         if (m >= referenceLength - 1 || radius2 < dot(d, d)) { d = z; m = 0; r = vec2(0.0); }
     }
+#ifdef SHIP_BATCH_STEPS
+    if (n < iterations) suspendShip(vec4(d, 0.0, 0.0), m, n);
+#endif
     return shipInterior();
 }
 
-// Each program links one path; the renderer chooses it for the current view.
+// Each program links one path; material.ts chooses it for the current view.
 vec3 sampleShip(vec2 uv) {
 #if SHIP_PATH == 0
     return sampleShipDirect(uv);
@@ -394,61 +524,29 @@ vec3 sampleShip(vec2 uv) {
     return sampleShipPerturbed(uv);
 #endif
 }
-
-
-void main() {
-#ifdef SHIP_RING
-    fragmentColour = vec4(sampleShip(vUv), 1.0);
-#else
-    vec3 colour = vec3(0.0);
-    for (int i = 0; i < 5; i++) {
-        if (float(i) >= aa) break;
-        vec2 offset = aa < 1.5 ? vec2(0.0) :
-            vec2((float(i) + 0.5) / aa - 0.5, fract((float(i) + 0.5) * 0.61803398875) - 0.5);
-        colour += sampleShip(vUv + (offset + jitter) / res);
-    }
-    fragmentColour = vec4(colour / aa, 1.0);
-#endif
-}
 `;
 
-// Fold/Celtic stay uniforms: compiling constants changes GPU rounding.
-// This is the pixel-verified shader with integer BLA alignment and orbit reuse.
-export function shipFragment(path: 0 | 1 | 2, ring = false, shiftHue = false): string {
-    return `#version 300 es
-#define SHIP_BLA_LEVELS 10
-#define SHIP_REFERENCE_WIDTH 1024
-#define SHIP_PATH ${path}
-${ring ? '#define SHIP_RING 1' : ''}
-${shiftHue ? '#define SHIP_SHIFT_HUE 1' : ''}
-${shipSource}`;
-}
-
-export const ringFragment = `#version 300 es
-#define SHIP_RING_BANDS 16
-precision highp float;
+// Original Lg; UTF-8 SHA-256 bc48cda0c25f510162e8ac7e776e17e237ddc277a205c5b31d661448b490a44a
+const originalRing = `precision highp float;
 precision highp int;
 
 // Assembles a frame from the ring map built in rings.ts. Band j covers pixel
 // radii (outer/2^(j+1), outer/2^j] with angles proportional to its radius, so
 // every pixel spans one to two texels per axis. A 2x2 box of bilinear taps
 // integrates that footprint.
-in vec2 vUv;
-out vec4 fragmentColour;
+varying vec2 vUv;
 uniform highp sampler2D ringMap;
 uniform float aspect;
 uniform float viewHeight; // display pixels per view height
 uniform int bandCount;
 uniform vec4 bandLayout[SHIP_RING_BANDS]; // first row, angles, log2 step, rings
-uniform vec4 bandPlace[SHIP_RING_BANDS]; // ring index at one view height (mod rings), outer radius, first column, strip columns
+uniform vec3 bandPlace[SHIP_RING_BANDS]; // ring index at one view height (mod rings), outer radius, first column
 
-vec3 ringTexel(ivec2 origin, ivec2 texel, int columns, int rings) {
-    // Logical angles continue across physical strips stacked vertically.
-    ivec2 physical = ivec2(texel.x % columns, texel.y + (texel.x / columns) * rings);
-    return texelFetch(ringMap, origin + physical, 0).rgb;
+vec3 ringTexel(ivec2 origin, ivec2 texel) {
+    return texelFetch(ringMap, origin + texel, 0).rgb;
 }
 
-vec3 ringSample(vec4 band, float column, float columns, vec2 at) {
+vec3 ringSample(vec4 band, float column, vec2 at) {
     vec2 base = floor(at), f = at - base;
     // Wrap angles and rings with integers: for an exact multiple, float mod can
     // return the divisor itself and read the next band's first ring.
@@ -456,8 +554,8 @@ vec3 ringSample(vec4 band, float column, float columns, vec2 at) {
     ivec2 a = ivec2(mod(base, band.yw)) % size, b = (a + 1) % size;
     ivec2 origin = ivec2(int(column), int(band.x));
     return mix(
-        mix(ringTexel(origin, a, int(columns), size.y), ringTexel(origin, ivec2(b.x, a.y), int(columns), size.y), f.x),
-        mix(ringTexel(origin, ivec2(a.x, b.y), int(columns), size.y), ringTexel(origin, b, int(columns), size.y), f.x),
+        mix(ringTexel(origin, a), ringTexel(origin, ivec2(b.x, a.y)), f.x),
+        mix(ringTexel(origin, ivec2(a.x, b.y)), ringTexel(origin, b), f.x),
         f.y);
 }
 
@@ -474,15 +572,14 @@ vec3 bandColour(int index, vec2 p, float radius) {
                    bandPlace[index].x - log2(radius / viewHeight) / band.z);
     float quarter = angles / radius * 0.25;
     float column = bandPlace[index].z;
-    float columns = bandPlace[index].w;
-    return 0.25 * (ringSample(band, column, columns, at + vec2(-quarter, -quarter)) +
-                   ringSample(band, column, columns, at + vec2(quarter, -quarter)) +
-                   ringSample(band, column, columns, at + vec2(-quarter, quarter)) +
-                   ringSample(band, column, columns, at + vec2(quarter, quarter)));
+    return 0.25 * (ringSample(band, column, at + vec2(-quarter, -quarter)) +
+                   ringSample(band, column, at + vec2(quarter, -quarter)) +
+                   ringSample(band, column, at + vec2(-quarter, quarter)) +
+                   ringSample(band, column, at + vec2(quarter, quarter)));
 }
 
-vec3 assembleRing(vec2 uv) {
-    vec2 p = vec2((uv.x - 0.5) * aspect, 0.5 - uv.y);
+void main() {
+    vec2 p = vec2((vUv.x - 0.5) * aspect, 0.5 - vUv.y);
     float innermost = bandPlace[bandCount - 1].y * 0.5;
     float radius = max(length(p) * viewHeight, innermost);
     float u = log2(bandPlace[0].y / radius);
@@ -493,19 +590,27 @@ vec3 assembleRing(vec2 uv) {
         colour = mix(colour, bandColour(index + 1, p, radius), (d - 1.0 + BLEND) / (2.0 * BLEND));
     else if (d < BLEND && index > 0)
         colour = mix(bandColour(index - 1, p, radius), colour, (d + BLEND) / (2.0 * BLEND));
-    return colour;
-}
-
-uniform vec2 res;
-uniform float aa;
-void main() {
-    vec3 colour = vec3(0.0);
-    for (int i = 0; i < 5; i++) {
-        if (float(i) >= aa) break;
-        vec2 offset = aa < 1.5 ? vec2(0.0) :
-            vec2((float(i) + 0.5) / aa - 0.5, fract((float(i) + 0.5) * 0.61803398875) - 0.5);
-        colour += assembleRing(vUv + offset / res);
-    }
-    fragmentColour = vec4(colour / aa, 1.0);
+    gl_FragColor = vec4(colour, 1.0);
 }
 `;
+
+// The original Fg material performs these same three include substitutions.
+const originalShipMaterial = originalShip
+  .replace('#include <ship_batch>', originalBatch)
+  .replace('#include <ship_veil>', originalVisibility)
+  .replace('#include <ship_perturbation>', originalPerturbation);
+
+function webgl2Interface(source: string): string {
+  return source.replaceAll('varying vec2 vUv;', 'in vec2 vUv;\nout vec4 fragmentColour;')
+    .replaceAll('gl_FragColor', 'fragmentColour')
+    .replaceAll('texture2D(', 'texture(');
+}
+
+/** Original shader paths: direct=0, float perturbation=1, FE perturbation=2. */
+export function shipFragment(path: 0 | 1 | 2, ring = false): string {
+  return '#version 300 es\nprecision highp int;\n#define SHIP_BLA_LEVELS 10\n#define SHIP_REFERENCE_WIDTH 1024\n#define SHIP_PATH '
+    + path + '\n' + (ring ? '#define SHIP_RING 1\n' : '') + webgl2Interface(originalShipMaterial);
+}
+
+/** Uses original contiguous-angle ring packing, not the optimized strip layout. */
+export const ringFragment = '#version 300 es\n#define SHIP_RING_BANDS 16\n' + webgl2Interface(originalRing);

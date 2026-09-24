@@ -1,8 +1,48 @@
-import type { ReferenceResult, RenderView } from '../types';
+import type { ReferenceResult, RenderView } from '../../types';
 import { ringFragment, shipFragment, vertexShader } from './shaders';
-import { createRingLayout, missingRingRanges, positiveModulo, ringWindow } from './rings';
-import type { RingBand, RingLayout } from './rings';
-import { TemporalAccumulator, temporalFragment, temporalCompositeFragment } from './temporal';
+import { TemporalAccumulator, temporalFragment, temporalCompositeFragment } from '../temporal';
+
+// Frozen GL adapter for the original https://newton-fractal.pages.dev/ shaders.
+// Ring layout/refresh policy below follows Gg/Kg from that application; it does
+// not inherit the WASM renderer's integer-BLA or segmented-cache changes.
+interface RingBand {
+  x: number; row: number; angles: number; step: number; rings: number;
+  radius: number; outwards: number; inwards: number; window: [number, number] | null;
+}
+interface RingLayout { bands: RingBand[]; width: number; height: number }
+const positiveModulo = (value: number, divisor: number) => ((value % divisor) + divisor) % divisor;
+
+function createRingLayout(width: number, height: number, maxTextureSize: number): RingLayout | null {
+  const radii = [Math.hypot(width, height) / 2 + 1];
+  while (radii.length < 16 && radii[radii.length - 1] > 1) radii.push(radii[radii.length - 1] / 2);
+  const deviceMemory = typeof navigator === 'undefined' ? 8 : (navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 8;
+  const pixelBudget = deviceMemory < 8 ? 24_000_000 : 48_000_000;
+  for (let density = 1.5; ; density *= 0.95) {
+    let x = 0, row = 0, rowHeight = 0, textureWidth = 0;
+    const bands = radii.map((radius, index): RingBand => {
+      const angles = Math.max(16, Math.ceil(2 * Math.PI * radius * density));
+      const step = 2 * Math.PI / angles / Math.LN2;
+      const outwards = index > 0 ? 0.5 : 0, inwards = index < radii.length - 1 ? 0.5 : 0;
+      const rings = Math.ceil((1 + outwards + inwards) / step) + 7;
+      textureWidth ||= angles;
+      if (x + angles > textureWidth) { row += rowHeight; x = 0; rowHeight = 0; }
+      const band = { x, row, angles, step, rings, radius, outwards, inwards, window: null };
+      x += angles; rowHeight = Math.max(rowHeight, rings);
+      return band;
+    });
+    const textureHeight = row + rowHeight;
+    if (density <= 0.5 || (textureWidth <= maxTextureSize && textureHeight <= maxTextureSize && textureWidth * textureHeight <= pixelBudget)) {
+      if (textureWidth > maxTextureSize || textureHeight > maxTextureSize) return null;
+      return { bands, width: textureWidth, height: textureHeight };
+    }
+  }
+}
+
+function ringWindow(band: RingBand, logScale: number, height: number, origin: number): [number, number] {
+  const outer = logScale + Math.log2(band.radius / height) + band.outwards;
+  const span = 1 + band.outwards + band.inwards;
+  return [Math.floor((origin - outer) / band.step) - 2, Math.ceil((origin - outer + span) / band.step) + 2];
+}
 
 type Path = 0 | 1 | 2;
 interface Program { program: WebGLProgram; uniforms: Map<string, WebGLUniformLocation | null> }
@@ -34,7 +74,7 @@ const pathName = (path: Path): 'direct' | 'float' | 'fe' => ['direct', 'float', 
  * Canvas dimensions are controlled by the caller. readPixels returns bottom-up RGBA8.
  * gpuTimeMs is the last completed hardware query, never a requestAnimationFrame delta.
  */
-export class FractalRenderer {
+export class LegacyRenderer {
   private readonly gl: WebGL2RenderingContext;
   private readonly vao: WebGLVertexArrayObject;
   private readonly timer: TimerExtension | null;
@@ -183,7 +223,7 @@ export class FractalRenderer {
     this.validateView(view);
     const gl = this.gl;
     if (this.canvas.width < 1 || this.canvas.height < 1) { this.resetTemporal(); return; }
-    const path: Path = view.logScale >= -8 ? 0 : view.logScale > -80 ? 1 : 2;
+    const path: Path = view.logScale >= -8 ? 0 : Math.floor(view.logScale) > -80 ? 1 : 2;
     if (path !== 0 && (!this.reference || this.reference.fold !== view.fold || this.reference.celtic !== view.celtic ||
         this.reference.iterations < view.iterations)) {
       throw new Error('Для глубокого масштаба нужна актуальная опорная орбита с теми же fold, Celtic и числом итераций.');
@@ -209,7 +249,7 @@ export class FractalRenderer {
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           gl.viewport(0, 0, this.canvas.width, this.canvas.height);
           gl.disable(gl.SCISSOR_TEST);
-          const program = this.getShipProgram(path, false, view.hue);
+          const program = this.getShipProgram(path, false);
           this.shipUniforms(program, view);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         }
@@ -259,8 +299,8 @@ export class FractalRenderer {
   }
 
   private assertAlive(): void {
-    if (this.disposed) throw new Error('FractalRenderer уже освобождён.');
-    if (!this.hasLiveContext()) throw new Error('WebGL-контекст потерян. После восстановления создайте новый FractalRenderer.');
+    if (this.disposed) throw new Error('LegacyRenderer уже освобождён.');
+    if (!this.hasLiveContext()) throw new Error('WebGL-контекст потерян. После восстановления создайте новый LegacyRenderer.');
   }
 
   private hasLiveContext(): boolean {
@@ -323,9 +363,8 @@ export class FractalRenderer {
     }
   }
 
-  private getShipProgram(path: Path, ring: boolean, hue = 0): Program {
-    const shiftHue = hue !== 0;
-    return this.getProgram(`ship/${path}/${+ring}/${+shiftHue}`, shipFragment(path, ring, shiftHue));
+  private getShipProgram(path: Path, ring: boolean): Program {
+    return this.getProgram(`ship/${path}/${+ring}`, shipFragment(path, ring));
   }
 
   private uniform(program: Program, name: string): WebGLUniformLocation | null {
@@ -436,7 +475,7 @@ export class FractalRenderer {
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, targets.width, targets.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, targets.current.framebuffer);
-    const ship = this.getShipProgram(path, false, view.hue);
+    const ship = this.getShipProgram(path, false);
     this.shipUniforms(ship, view);
     gl.uniform1f(this.uniform(ship, 'aa'), 1);
     gl.uniform2f(this.uniform(ship, 'jitter'), frame.jitter.x, frame.jitter.y);
@@ -489,19 +528,6 @@ export class FractalRenderer {
       view.fold, view.celtic, view.hue].join(':');
   }
 
-  private ringAllocationAvailable(): boolean {
-    this.assertAlive();
-    const gl = this.gl;
-    let outOfMemory = false;
-    for (let error = gl.getError(); error !== gl.NO_ERROR; error = gl.getError()) {
-      if (error !== gl.OUT_OF_MEMORY) {
-        throw new Error(`Ошибка WebGL (создание кольцевого кэша): 0x${error.toString(16)}.`);
-      }
-      outOfMemory = true;
-    }
-    return !outOfMemory;
-  }
-
   private createRings(view: RenderView, key: string): RingCache | null {
     const gl = this.gl;
     const layout = createRingLayout(this.canvas.width, this.canvas.height, gl.getParameter(gl.MAX_TEXTURE_SIZE));
@@ -509,41 +535,32 @@ export class FractalRenderer {
     if (!layout) { this.disabledRingKey = key; return null; }
     const texture = gl.createTexture();
     const framebuffer = gl.createFramebuffer();
-    let retained = false;
+    if (!texture || !framebuffer) {
+      if (texture) gl.deleteTexture(texture);
+      if (framebuffer) gl.deleteFramebuffer(framebuffer);
+      throw new Error('Не удалось создать кольцевой кэш GPU.');
+    }
     try {
-      if (!this.ringAllocationAvailable() || !texture || !framebuffer) {
-        this.disabledRingKey = key;
-        return null;
-      }
       gl.bindTexture(gl.TEXTURE_2D, texture);
       this.textureParameters();
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, layout.width, layout.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
-      if (!this.ringAllocationAvailable()) {
-        this.disabledRingKey = key;
-        return null;
-      }
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
       const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
-      if (!this.ringAllocationAvailable() || status !== gl.FRAMEBUFFER_COMPLETE) {
-        this.disabledRingKey = key;
-        return null;
-      }
-      retained = true;
-      this.stats.ringResets++;
-      return this.rings = {
-        layout, texture, framebuffer, key,
-        origin: view.logScale + Math.log2(layout.bands[0].radius / this.canvas.height),
-      };
+      if (status !== gl.FRAMEBUFFER_COMPLETE) throw new Error(`Кольцевой framebuffer неполон: 0x${status.toString(16)}.`);
+      this.checkError('создание кольцевого кэша');
+    } catch (error) {
+      gl.deleteFramebuffer(framebuffer);
+      gl.deleteTexture(texture);
+      throw error;
     } finally {
-      if (this.hasLiveContext()) {
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        if (!retained) {
-          if (framebuffer) gl.deleteFramebuffer(framebuffer);
-          if (texture) gl.deleteTexture(texture);
-        }
-      }
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     }
+    this.stats.ringResets++;
+    return this.rings = {
+      layout, texture, framebuffer, key,
+      origin: view.logScale + Math.log2(layout.bands[0].radius / this.canvas.height),
+    };
   }
 
   private drawRingRows(cache: RingCache, band: RingBand, first: number, last: number, view: RenderView): void {
@@ -554,22 +571,14 @@ export class FractalRenderer {
       const logScale = cache.origin - index * band.step;
       const innermostLogScale = cache.origin - (index + rows - 1) * band.step;
       const path: Path = innermostLogScale > -90 ? 1 : 2;
-      const program = this.getShipProgram(path, true, view.hue);
+      const program = this.getShipProgram(path, true);
       this.shipUniforms(program, view, logScale);
+      gl.uniform4f(this.uniform(program, 'ringBlock'), band.x, band.row + row, band.angles, band.step);
       gl.bindFramebuffer(gl.FRAMEBUFFER, cache.framebuffer);
+      gl.viewport(band.x, band.row + row, band.angles, rows);
       gl.enable(gl.SCISSOR_TEST);
-      const strips = Math.ceil(band.angles / band.columns);
-      for (let strip = 0; strip < strips; strip++) {
-        const firstAngle = strip * band.columns;
-        const width = Math.min(band.columns, band.angles - firstAngle);
-        const targetY = band.row + strip * band.rings + row;
-        // Offset physical x back to the original angular index. Every strip
-        // uses exactly the same logical angles, radii and arithmetic as before.
-        gl.uniform4f(this.uniform(program, 'ringBlock'), band.x - firstAngle, targetY, band.angles, band.step);
-        gl.viewport(band.x, targetY, width, rows);
-        gl.scissor(band.x, targetY, width, rows);
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-      }
+      gl.scissor(band.x, band.row + row, band.angles, rows);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
       this.stats.ringsDrawn += rows;
       this.stats.ringSamples += rows * band.angles;
       index += rows;
@@ -591,28 +600,40 @@ export class FractalRenderer {
     const work = cache.layout.bands.map(band => {
       const wanted = ringWindow(band, view.logScale, this.canvas.height, cache.origin);
       const old = band.window;
-      band.window = old && old[1] >= wanted[0] && old[0] <= wanted[1]
+      const window: [number, number] | null = old && old[1] >= wanted[0] && old[0] <= wanted[1]
         ? [Math.max(old[0], wanted[0]), Math.min(old[1], wanted[1])] : null;
-      return { band, wanted, ranges: missingRingRanges(wanted, band.window) };
+      const valid = window ? window[1] - window[0] + 1 : 0;
+      return { band, wanted, window, missing: wanted[1] - wanted[0] + 1 - valid };
     });
-    const missing = work.reduce((sum, item) => sum + item.ranges.reduce((n, range) => n + (range[1] - range[0] + 1) * item.band.angles, 0), 0);
+    const missing = work.reduce((sum, item) => sum + item.missing * item.band.angles, 0);
     const pixels = this.canvas.width * this.canvas.height;
-    let budget = missing <= pixels ? missing : Math.floor(pixels / 2);
+    let budget = missing <= pixels ? missing : pixels / 2;
     let complete = true;
-    for (const item of work) {
-      const { band, wanted } = item;
-      for (const [first, last] of item.ranges) {
-        const rows = Math.min(last - first + 1, Math.floor(budget / band.angles));
-        if (rows <= 0) continue;
-        // Fill backwards when extending toward the outer rings, keeping one
-        // contiguous valid interval even when this frame's work budget ends.
-        const from = band.window && last < band.window[0] ? last - rows + 1 : first;
-        const to = from + rows - 1;
-        this.drawRingRows(cache, band, from, to, view);
-        band.window = band.window ? [Math.min(band.window[0], from), Math.max(band.window[1], to)] : [from, to];
-        budget -= rows * band.angles;
+    for (const { band, wanted, window: previous } of work) {
+      let window = previous;
+      const availableRows = () => Math.floor(budget / band.angles);
+      if (!window) {
+        const rows = Math.min(wanted[1] - wanted[0] + 1, availableRows());
+        if (rows > 0) {
+          window = [wanted[0], wanted[0] + rows - 1];
+          this.drawRingRows(cache, band, window[0], window[1], view);
+          budget -= rows * band.angles;
+        }
       }
-      if (!band.window || band.window[0] > wanted[0] || band.window[1] < wanted[1]) complete = false;
+      if (window) {
+        const innerRows = Math.min(wanted[1] - window[1], availableRows());
+        if (innerRows > 0) {
+          this.drawRingRows(cache, band, window[1] + 1, window[1] + innerRows, view);
+          window[1] += innerRows; budget -= innerRows * band.angles;
+        }
+        const outerRows = Math.min(window[0] - wanted[0], availableRows());
+        if (outerRows > 0) {
+          this.drawRingRows(cache, band, window[0] - outerRows, window[0] - 1, view);
+          window[0] -= outerRows; budget -= outerRows * band.angles;
+        }
+      }
+      band.window = window;
+      if (!window || window[0] > wanted[0] || window[1] < wanted[1]) complete = false;
     }
     if (!complete) return false;
     const gl = this.gl;
@@ -631,8 +652,8 @@ export class FractalRenderer {
     gl.uniform1i(this.uniform(program, 'bandCount'), cache.layout.bands.length);
     cache.layout.bands.forEach((band, index) => {
       gl.uniform4f(this.uniform(program, `bandLayout[${index}]`), band.row, band.angles, band.step, band.rings);
-      gl.uniform4f(this.uniform(program, `bandPlace[${index}]`),
-        positiveModulo((cache.origin - view.logScale) / band.step, band.rings), band.radius, band.x, band.columns);
+      gl.uniform3f(this.uniform(program, `bandPlace[${index}]`),
+        positiveModulo((cache.origin - view.logScale) / band.step, band.rings), band.radius, band.x);
     });
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     this.stats.ringFrames++;
