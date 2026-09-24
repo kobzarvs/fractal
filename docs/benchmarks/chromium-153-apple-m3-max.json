@@ -1,0 +1,1157 @@
+{
+  "kind": "burning-ship-browser-benchmark",
+  "createdAt": "2026-09-24T19:14:09.120Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36",
+  "hardwareConcurrency": 16,
+  "devicePixelRatio": 1,
+  "gpuDevice": {
+    "vendor": "Google Inc. (Apple)",
+    "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple M3 Max, Unspecified Version)",
+    "identification": "unmasked"
+  },
+  "resizableMemory": {
+    "scalar": true,
+    "simd": true,
+    "scalarBufferResizable": true,
+    "simdBufferResizable": true
+  },
+  "settings": {
+    "width": 320,
+    "height": 200,
+    "aaSamples": 2,
+    "iterations": 16384,
+    "referenceBits": 576,
+    "warmups": 2,
+    "measuredRuns": 9,
+    "gpuVariantsAlternated": true,
+    "cpuTiming": "performance.now; no scheduler yields inside compute",
+    "gpuTiming": "EXT_disjoint_timer_query_webgl2; null when unavailable",
+    "pixelFormat": "RGBA8",
+    "canvasAttached": false
+  },
+  "memoryBytesStable": true,
+  "checks": {
+    "exactReferenceArrays": true,
+    "exactGpuPixels": true,
+    "nontrivialGpuImages": true,
+    "ringChecksPassed": true,
+    "temporalChecksPassed": true,
+    "contextRestorePassed": true,
+    "workerChecksPassed": true,
+    "rawCancellationChecksPassed": true,
+    "passed": true
+  },
+  "cpu": [
+    {
+      "name": "western-armada-576-16384",
+      "bits": 576,
+      "iterations": 16384,
+      "length": 12807,
+      "capacity": 17408,
+      "js": {
+        "runs": 9,
+        "medianMs": 20.200000017881393,
+        "p95Ms": 26.599999994039536,
+        "minMs": 19.299999982118607,
+        "maxMs": 26.599999994039536,
+        "samplesMs": [
+          26.599999994039536,
+          19.80000001192093,
+          19.599999994039536,
+          20.099999994039536,
+          19.299999982118607,
+          20.799999982118607,
+          20.400000005960464,
+          20.30000001192093,
+          20.200000017881393
+        ]
+      },
+      "scalar": {
+        "runs": 9,
+        "medianMs": 16,
+        "p95Ms": 16.5,
+        "minMs": 15.5,
+        "maxMs": 16.5,
+        "samplesMs": [
+          16.19999998807907,
+          15.599999994039536,
+          16.5,
+          16.5,
+          15.5,
+          15.900000005960464,
+          16,
+          16.30000001192093,
+          15.799999982118607
+        ],
+        "memoryMode": "resizable",
+        "memoryBytes": 2424832,
+        "memoryBytesStable": true
+      },
+      "simd": {
+        "runs": 9,
+        "medianMs": 15.599999994039536,
+        "p95Ms": 16.30000001192093,
+        "minMs": 15.199999988079071,
+        "maxMs": 16.30000001192093,
+        "samplesMs": [
+          15.599999994039536,
+          15.199999988079071,
+          15.900000005960464,
+          15.199999988079071,
+          15.300000011920929,
+          15.200000017881393,
+          15.899999976158142,
+          16.30000001192093,
+          15.700000017881393
+        ],
+        "memoryMode": "resizable",
+        "memoryBytes": 2424832,
+        "memoryBytesStable": true
+      },
+      "scalarSpeedupVsJs": 1.262500001117587,
+      "simdSpeedupVsJs": 1.294871796512784,
+      "simdSpeedupVsScalar": 1.0256410260329036,
+      "exactArrays": {
+        "scalar": {
+          "equal": true,
+          "metadataEqual": true,
+          "mismatchedBytes": 0,
+          "arrays": [
+            {
+              "name": "orbit",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "realOrbit",
+              "bytes": 16,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaA",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaB",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaBounds",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            }
+          ]
+        },
+        "simd": {
+          "equal": true,
+          "metadataEqual": true,
+          "mismatchedBytes": 0,
+          "arrays": [
+            {
+              "name": "orbit",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "realOrbit",
+              "bytes": 16,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaA",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaB",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaBounds",
+              "bytes": 278528,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "interior-origin-128-1024",
+      "bits": 128,
+      "iterations": 1024,
+      "length": 1025,
+      "capacity": 2048,
+      "js": {
+        "runs": 9,
+        "medianMs": 0.30000001192092896,
+        "p95Ms": 0.5,
+        "minMs": 0.29999998211860657,
+        "maxMs": 0.5,
+        "samplesMs": [
+          0.29999998211860657,
+          0.30000001192092896,
+          0.4000000059604645,
+          0.3999999761581421,
+          0.4000000059604645,
+          0.30000001192092896,
+          0.29999998211860657,
+          0.5,
+          0.30000001192092896
+        ]
+      },
+      "scalar": {
+        "runs": 9,
+        "medianMs": 0.19999998807907104,
+        "p95Ms": 0.30000001192092896,
+        "minMs": 0.09999999403953552,
+        "maxMs": 0.30000001192092896,
+        "samplesMs": [
+          0.10000002384185791,
+          0.19999998807907104,
+          0.09999999403953552,
+          0.10000002384185791,
+          0.30000001192092896,
+          0.19999998807907104,
+          0.19999998807907104,
+          0.19999998807907104,
+          0.19999998807907104
+        ],
+        "memoryMode": "resizable",
+        "memoryBytes": 2424832,
+        "memoryBytesStable": true
+      },
+      "simd": {
+        "runs": 9,
+        "medianMs": 0.19999998807907104,
+        "p95Ms": 0.20000001788139343,
+        "minMs": 0.09999999403953552,
+        "maxMs": 0.20000001788139343,
+        "samplesMs": [
+          0.19999998807907104,
+          0.10000002384185791,
+          0.20000001788139343,
+          0.19999998807907104,
+          0.20000001788139343,
+          0.09999999403953552,
+          0.19999998807907104,
+          0.20000001788139343,
+          0.19999998807907104
+        ],
+        "memoryMode": "resizable",
+        "memoryBytes": 2424832,
+        "memoryBytesStable": true
+      },
+      "scalarSpeedupVsJs": 1.5000001490116208,
+      "simdSpeedupVsJs": 1.5000001490116208,
+      "simdSpeedupVsScalar": 1,
+      "exactArrays": {
+        "scalar": {
+          "equal": true,
+          "metadataEqual": true,
+          "mismatchedBytes": 0,
+          "arrays": [
+            {
+              "name": "orbit",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "realOrbit",
+              "bytes": 16,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaA",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaB",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaBounds",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            }
+          ]
+        },
+        "simd": {
+          "equal": true,
+          "metadataEqual": true,
+          "mismatchedBytes": 0,
+          "arrays": [
+            {
+              "name": "orbit",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "realOrbit",
+              "bytes": 16,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaA",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaB",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            },
+            {
+              "name": "blaBounds",
+              "bytes": 32768,
+              "mismatchedBytes": 0,
+              "firstMismatch": null
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "worker": {
+    "variants": [
+      {
+        "backend": "wasm",
+        "wall": {
+          "runs": 9,
+          "medianMs": 16.099999994039536,
+          "p95Ms": 16.5,
+          "minMs": 15.399999976158142,
+          "maxMs": 16.5,
+          "samplesMs": [
+            16.299999982118607,
+            16.099999994039536,
+            16.099999994039536,
+            16.100000023841858,
+            16.099999994039536,
+            15.900000005960464,
+            16.5,
+            16,
+            15.399999976158142
+          ]
+        },
+        "computation": {
+          "runs": 9,
+          "medianMs": 16.099999994039536,
+          "p95Ms": 16.400000005960464,
+          "minMs": 15.399999976158142,
+          "maxMs": 16.400000005960464,
+          "samplesMs": [
+            16.19999998807907,
+            16,
+            16.099999994039536,
+            16.100000023841858,
+            16.099999994039536,
+            15.800000011920929,
+            16.400000005960464,
+            15.800000011920929,
+            15.399999976158142
+          ]
+        },
+        "localMedianMs": 16,
+        "workerWallOverLocalRatio": 1.006249999627471,
+        "workerComputationOverLocalRatio": 1.006249999627471,
+        "memoryBytes": 2424832,
+        "memoryMode": "resizable",
+        "memoryBytesStable": true,
+        "allArraysEqual": true
+      },
+      {
+        "backend": "simd",
+        "wall": {
+          "runs": 9,
+          "medianMs": 15.800000011920929,
+          "p95Ms": 16.400000005960464,
+          "minMs": 15.5,
+          "maxMs": 16.400000005960464,
+          "samplesMs": [
+            15.599999994039536,
+            16.400000005960464,
+            15.800000011920929,
+            15.700000017881393,
+            15.5,
+            15.699999988079071,
+            16.099999994039536,
+            16.200000017881393,
+            15.900000005960464
+          ]
+        },
+        "computation": {
+          "runs": 9,
+          "medianMs": 15.800000011920929,
+          "p95Ms": 16.200000017881393,
+          "minMs": 15.399999976158142,
+          "maxMs": 16.200000017881393,
+          "samplesMs": [
+            15.5,
+            16.200000017881393,
+            15.800000011920929,
+            15.5,
+            15.399999976158142,
+            15.5,
+            16,
+            16.099999994039536,
+            15.800000011920929
+          ]
+        },
+        "localMedianMs": 15.599999994039536,
+        "workerWallOverLocalRatio": 1.0128205139716544,
+        "workerComputationOverLocalRatio": 1.0128205139716544,
+        "memoryBytes": 2424832,
+        "memoryMode": "resizable",
+        "memoryBytesStable": true,
+        "allArraysEqual": true
+      }
+    ],
+    "cancellation": {
+      "firstRejectedWithAbortError": true,
+      "firstErrorName": "AbortError",
+      "replacementId": 24,
+      "replacementArrays": {
+        "equal": true,
+        "metadataEqual": true,
+        "mismatchedBytes": 0,
+        "arrays": [
+          {
+            "name": "orbit",
+            "bytes": 278528,
+            "mismatchedBytes": 0,
+            "firstMismatch": null
+          },
+          {
+            "name": "realOrbit",
+            "bytes": 16,
+            "mismatchedBytes": 0,
+            "firstMismatch": null
+          },
+          {
+            "name": "blaA",
+            "bytes": 278528,
+            "mismatchedBytes": 0,
+            "firstMismatch": null
+          },
+          {
+            "name": "blaB",
+            "bytes": 278528,
+            "mismatchedBytes": 0,
+            "firstMismatch": null
+          },
+          {
+            "name": "blaBounds",
+            "bytes": 278528,
+            "mismatchedBytes": 0,
+            "firstMismatch": null
+          }
+        ]
+      },
+      "recycledRunsExact": true,
+      "memoryAfterRaceStable": true,
+      "stableMemoryBytes": 6881280,
+      "recycledComputeMs": [
+        15.800000011920929,
+        16.19999998807907,
+        15.300000011920929
+      ]
+    },
+    "timingNote": "wall includes messaging; computation includes the worker cooperative scheduler; local core has no scheduler yields"
+  },
+  "cancellationProbe": {
+    "kind": "raw-worker-cancellation-probe",
+    "bits": 4096,
+    "fullIterations": 4096,
+    "shortIterations": 8,
+    "coordinates": {
+      "format": "decimal",
+      "full": {
+        "x": "-1",
+        "y": "-1"
+      },
+      "health": {
+        "x": "0",
+        "y": "0"
+      }
+    },
+    "variants": [
+      {
+        "backend": "wasm",
+        "fullBaseline": {
+          "samples": [
+            {
+              "wallMs": 252.89999997615814,
+              "computeMs": 252.7999999821186
+            },
+            {
+              "wallMs": 253.2999999821186,
+              "computeMs": 253.2999999821186
+            },
+            {
+              "wallMs": 253.39999997615814,
+              "computeMs": 253.2999999821186
+            }
+          ],
+          "minWallMs": 252.89999997615814,
+          "medianWallMs": 253.2999999821186,
+          "maxWallMs": 253.39999997615814
+        },
+        "shortBaseline": {
+          "samples": [
+            {
+              "wallMs": 0.10000002384185791,
+              "computeMs": 0.10000002384185791
+            },
+            {
+              "wallMs": 0,
+              "computeMs": 0
+            },
+            {
+              "wallMs": 0.09999999403953552,
+              "computeMs": 0
+            }
+          ],
+          "minWallMs": 0,
+          "medianWallMs": 0.09999999403953552,
+          "maxWallMs": 0.10000002384185791
+        },
+        "replacement": {
+          "obsoleteId": 9008,
+          "latestId": 9009,
+          "signal": "replacement-request",
+          "requestedSignalDelayMs": 5,
+          "signalDelayMs": 6.199999988079071,
+          "received": [
+            {
+              "id": 9009,
+              "type": "result",
+              "receivedMs": 1027.5,
+              "computeMs": 0
+            }
+          ],
+          "receivedResultIds": [
+            9009
+          ],
+          "obsoleteResultPublished": false,
+          "oldResultBeforeSignal": false,
+          "timingConclusive": true,
+          "obsoleteResultSuppressed": true,
+          "finalHealthExact": true,
+          "wallAfterSignalMs": 2,
+          "wallAfterSignalOverFullBaseline": 0.00789577576052581,
+          "estimatedWithoutCancellationMs": 247.19999998807907,
+          "fasterThanEstimatedUncancelledWork": true,
+          "measuredFullJobBoundMs": 253.5,
+          "withinMeasuredFullJobBound": true
+        },
+        "cancellation": {
+          "obsoleteId": 9010,
+          "latestId": 9011,
+          "signal": "cancel-then-health-request",
+          "requestedSignalDelayMs": 5,
+          "signalDelayMs": 5.699999988079071,
+          "received": [
+            {
+              "id": 9011,
+              "type": "result",
+              "receivedMs": 1036.4000000059605,
+              "computeMs": 0
+            }
+          ],
+          "receivedResultIds": [
+            9011
+          ],
+          "obsoleteResultPublished": false,
+          "oldResultBeforeSignal": false,
+          "timingConclusive": true,
+          "obsoleteResultSuppressed": true,
+          "finalHealthExact": true,
+          "wallAfterSignalMs": 2.5,
+          "wallAfterSignalOverFullBaseline": 0.009869719700657262,
+          "estimatedWithoutCancellationMs": 247.69999998807907,
+          "fasterThanEstimatedUncancelledWork": true,
+          "measuredFullJobBoundMs": 253.5,
+          "withinMeasuredFullJobBound": true
+        }
+      },
+      {
+        "backend": "js",
+        "fullBaseline": {
+          "samples": [
+            {
+              "wallMs": 37.30000001192093,
+              "computeMs": 37.30000001192093
+            },
+            {
+              "wallMs": 37.20000001788139,
+              "computeMs": 37.10000002384186
+            },
+            {
+              "wallMs": 37.400000005960464,
+              "computeMs": 37.29999998211861
+            }
+          ],
+          "minWallMs": 37.20000001788139,
+          "medianWallMs": 37.30000001192093,
+          "maxWallMs": 37.400000005960464
+        },
+        "shortBaseline": {
+          "samples": [
+            {
+              "wallMs": 0.09999999403953552,
+              "computeMs": 0.09999999403953552
+            },
+            {
+              "wallMs": 0,
+              "computeMs": 0
+            },
+            {
+              "wallMs": 0,
+              "computeMs": 0
+            }
+          ],
+          "minWallMs": 0,
+          "medianWallMs": 0,
+          "maxWallMs": 0.09999999403953552
+        },
+        "replacement": {
+          "obsoleteId": 9019,
+          "latestId": 9020,
+          "signal": "replacement-request",
+          "requestedSignalDelayMs": 5,
+          "signalDelayMs": 5.799999982118607,
+          "received": [
+            {
+              "id": 9020,
+              "type": "result",
+              "receivedMs": 1196.9000000059605,
+              "computeMs": 0.09999999403953552
+            }
+          ],
+          "receivedResultIds": [
+            9020
+          ],
+          "obsoleteResultPublished": false,
+          "oldResultBeforeSignal": false,
+          "timingConclusive": true,
+          "obsoleteResultSuppressed": true,
+          "finalHealthExact": true,
+          "wallAfterSignalMs": 2.9000000059604645,
+          "wallAfterSignalOverFullBaseline": 0.07774798941108944,
+          "estimatedWithoutCancellationMs": 31.500000029802322,
+          "fasterThanEstimatedUncancelledWork": true,
+          "measuredFullJobBoundMs": 37.5,
+          "withinMeasuredFullJobBound": true
+        },
+        "cancellation": {
+          "obsoleteId": 9021,
+          "latestId": 9022,
+          "signal": "cancel-then-health-request",
+          "requestedSignalDelayMs": 5,
+          "signalDelayMs": 5,
+          "received": [
+            {
+              "id": 9022,
+              "type": "result",
+              "receivedMs": 1206.1000000238419,
+              "computeMs": 0
+            }
+          ],
+          "receivedResultIds": [
+            9022
+          ],
+          "obsoleteResultPublished": false,
+          "oldResultBeforeSignal": false,
+          "timingConclusive": true,
+          "obsoleteResultSuppressed": true,
+          "finalHealthExact": true,
+          "wallAfterSignalMs": 3.7000000178813934,
+          "wallAfterSignalOverFullBaseline": 0.09919571090345546,
+          "estimatedWithoutCancellationMs": 32.30000001192093,
+          "fasterThanEstimatedUncancelledWork": true,
+          "measuredFullJobBoundMs": 37.5,
+          "withinMeasuredFullJobBound": true
+        }
+      }
+    ],
+    "checks": {
+      "timingConclusive": true,
+      "obsoleteResultsSuppressed": true,
+      "finalHealthExact": true,
+      "passed": true
+    },
+    "timingNote": "Latency ratios and bounds use this worker's three measured full/short jobs; no fixed millisecond limit is an acceptance criterion. A late signal makes the trial inconclusive, not evidence of cancellation failure."
+  },
+  "gpu": [
+    {
+      "name": "overview",
+      "zoomPower10": null,
+      "path": "direct",
+      "logScale": 1.6780719051126378,
+      "baselineVsOptimized": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "jsVsWasmPixels": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "content": {
+        "nontrivialRGB": true,
+        "distinctRGBAtLeast": 256,
+        "minRGB": 0,
+        "maxRGB": 255,
+        "nonOpaquePixels": 0
+      },
+      "performanceComparisonAccepted": true,
+      "gpuTimerSupported": true,
+      "baselineGpu": {
+        "runs": 9,
+        "medianMs": 10.158874,
+        "p95Ms": 10.270875,
+        "minMs": 10.086083,
+        "maxMs": 10.270875,
+        "samplesMs": [
+          10.270875,
+          10.204874,
+          10.223458,
+          10.217541,
+          10.150916,
+          10.158874,
+          10.086083,
+          10.104666,
+          10.122083
+        ]
+      },
+      "optimizedGpu": {
+        "runs": 9,
+        "medianMs": 10.142874,
+        "p95Ms": 10.226708,
+        "minMs": 10.077249,
+        "maxMs": 10.226708,
+        "samplesMs": [
+          10.137666,
+          10.226708,
+          10.096458,
+          10.142874,
+          10.077249,
+          10.223249,
+          10.216541,
+          10.094999,
+          10.165374
+        ]
+      },
+      "gpuSamplesReceived": {
+        "baseline": 9,
+        "optimized": 9
+      },
+      "gpuSpeedup": 1.0015774621670348
+    },
+    {
+      "name": "western-armada-10^10",
+      "zoomPower10": 10,
+      "path": "float",
+      "logScale": -31.541209043760986,
+      "baselineVsOptimized": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "jsVsWasmPixels": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "content": {
+        "nontrivialRGB": true,
+        "distinctRGBAtLeast": 256,
+        "minRGB": 0,
+        "maxRGB": 255,
+        "nonOpaquePixels": 0
+      },
+      "performanceComparisonAccepted": true,
+      "gpuTimerSupported": true,
+      "baselineGpu": {
+        "runs": 9,
+        "medianMs": 0.68475,
+        "p95Ms": 0.783625,
+        "minMs": 0.594999,
+        "maxMs": 0.783625,
+        "samplesMs": [
+          0.601708,
+          0.661874,
+          0.594999,
+          0.702874,
+          0.746499,
+          0.68475,
+          0.693374,
+          0.667749,
+          0.783625
+        ]
+      },
+      "optimizedGpu": {
+        "runs": 9,
+        "medianMs": 0.574375,
+        "p95Ms": 0.597333,
+        "minMs": 0.554916,
+        "maxMs": 0.597333,
+        "samplesMs": [
+          0.570249,
+          0.594374,
+          0.576249,
+          0.567291,
+          0.574375,
+          0.576291,
+          0.573916,
+          0.597333,
+          0.554916
+        ]
+      },
+      "gpuSamplesReceived": {
+        "baseline": 9,
+        "optimized": 9
+      },
+      "gpuSpeedup": 1.192165397170838
+    },
+    {
+      "name": "western-armada-10^30",
+      "zoomPower10": 30,
+      "path": "fe",
+      "logScale": -97.97977094150824,
+      "baselineVsOptimized": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "jsVsWasmPixels": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "content": {
+        "nontrivialRGB": true,
+        "distinctRGBAtLeast": 256,
+        "minRGB": 0,
+        "maxRGB": 255,
+        "nonOpaquePixels": 0
+      },
+      "performanceComparisonAccepted": true,
+      "gpuTimerSupported": true,
+      "baselineGpu": {
+        "runs": 9,
+        "medianMs": 3.787083,
+        "p95Ms": 4.056166,
+        "minMs": 3.665875,
+        "maxMs": 4.056166,
+        "samplesMs": [
+          3.665875,
+          3.784958,
+          3.787083,
+          4.056166,
+          3.775124,
+          3.7835,
+          4.008874,
+          3.805458,
+          4.036041
+        ]
+      },
+      "optimizedGpu": {
+        "runs": 9,
+        "medianMs": 3.570833,
+        "p95Ms": 3.721666,
+        "minMs": 3.481374,
+        "maxMs": 3.721666,
+        "samplesMs": [
+          3.481374,
+          3.56075,
+          3.70375,
+          3.577249,
+          3.570833,
+          3.721666,
+          3.57425,
+          3.5625,
+          3.569916
+        ]
+      },
+      "gpuSamplesReceived": {
+        "baseline": 9,
+        "optimized": 9
+      },
+      "gpuSpeedup": 1.0605600990021096
+    },
+    {
+      "name": "western-armada-10^90",
+      "zoomPower10": 90,
+      "path": "fe",
+      "logScale": -297.29545663474994,
+      "baselineVsOptimized": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "jsVsWasmPixels": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "content": {
+        "nontrivialRGB": true,
+        "distinctRGBAtLeast": 256,
+        "minRGB": 0,
+        "maxRGB": 255,
+        "nonOpaquePixels": 0
+      },
+      "performanceComparisonAccepted": true,
+      "gpuTimerSupported": true,
+      "baselineGpu": {
+        "runs": 9,
+        "medianMs": 2.572999,
+        "p95Ms": 2.675708,
+        "minMs": 2.478708,
+        "maxMs": 2.675708,
+        "samplesMs": [
+          2.57475,
+          2.478708,
+          2.572999,
+          2.570124,
+          2.66825,
+          2.567291,
+          2.671958,
+          2.569875,
+          2.675708
+        ]
+      },
+      "optimizedGpu": {
+        "runs": 9,
+        "medianMs": 2.518749,
+        "p95Ms": 2.563583,
+        "minMs": 2.428708,
+        "maxMs": 2.563583,
+        "samplesMs": [
+          2.428708,
+          2.518749,
+          2.441624,
+          2.510916,
+          2.532875,
+          2.437166,
+          2.563583,
+          2.530375,
+          2.559999
+        ]
+      },
+      "gpuSamplesReceived": {
+        "baseline": 9,
+        "optimized": 9
+      },
+      "gpuSpeedup": 1.021538470089715
+    },
+    {
+      "name": "western-armada-10^120",
+      "zoomPower10": 120,
+      "path": "fe",
+      "logScale": -396.95329948137083,
+      "baselineVsOptimized": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "jsVsWasmPixels": {
+        "equal": true,
+        "mismatchedChannels": 0,
+        "mismatchedPixels": 0,
+        "maxAbsoluteDifference": 0,
+        "meanAbsoluteDifference": 0
+      },
+      "content": {
+        "nontrivialRGB": true,
+        "distinctRGBAtLeast": 256,
+        "minRGB": 0,
+        "maxRGB": 255,
+        "nonOpaquePixels": 0
+      },
+      "performanceComparisonAccepted": true,
+      "gpuTimerSupported": true,
+      "baselineGpu": {
+        "runs": 9,
+        "medianMs": 7.0025,
+        "p95Ms": 7.113125,
+        "minMs": 6.66275,
+        "maxMs": 7.113125,
+        "samplesMs": [
+          6.984999,
+          7.087,
+          6.963541,
+          7.113125,
+          7.0025,
+          7.071958,
+          6.990875,
+          6.66275,
+          7.109875
+        ]
+      },
+      "optimizedGpu": {
+        "runs": 9,
+        "medianMs": 6.316791,
+        "p95Ms": 6.629333,
+        "minMs": 6.199958,
+        "maxMs": 6.629333,
+        "samplesMs": [
+          6.324708,
+          6.629333,
+          6.318375,
+          6.309124,
+          6.2735,
+          6.199958,
+          6.316791,
+          6.265625,
+          6.508749
+        ]
+      },
+      "gpuSamplesReceived": {
+        "baseline": 9,
+        "optimized": 9
+      },
+      "gpuSpeedup": 1.1085533778147798
+    }
+  ],
+  "rings": {
+    "enabled": true,
+    "zoomPower10": 30,
+    "baselineVsOptimized": {
+      "equal": true,
+      "mismatchedChannels": 0,
+      "mismatchedPixels": 0,
+      "maxAbsoluteDifference": 0,
+      "meanAbsoluteDifference": 0
+    },
+    "content": {
+      "nontrivialRGB": true,
+      "distinctRGBAtLeast": 256,
+      "minRGB": 0,
+      "maxRGB": 255,
+      "nonOpaquePixels": 0
+    },
+    "variants": [
+      {
+        "optimized": false,
+        "initialFillFrames": 24,
+        "initialRows": 745,
+        "repeatedViewNewRows": 0,
+        "zeroWorkOnRepeatedView": true,
+        "zoomNewRows": 8,
+        "zoomNewSamples": 9499,
+        "zoomReusedCache": true
+      },
+      {
+        "optimized": true,
+        "initialFillFrames": 24,
+        "initialRows": 745,
+        "repeatedViewNewRows": 0,
+        "zeroWorkOnRepeatedView": true,
+        "zoomNewRows": 8,
+        "zoomNewSamples": 9499,
+        "zoomReusedCache": true
+      }
+    ]
+  },
+  "temporal": {
+    "supported": true,
+    "reason": null,
+    "enabled": true,
+    "aaSamples": 3,
+    "zoomPower10": 30,
+    "baselineFrames": 3,
+    "optimizedFrames": 3,
+    "resetFrames": 3,
+    "settledAtRequestedSamples": true,
+    "baselineVsOptimized": {
+      "equal": true,
+      "mismatchedChannels": 0,
+      "mismatchedPixels": 0,
+      "maxAbsoluteDifference": 0,
+      "meanAbsoluteDifference": 0
+    },
+    "repeatAfterReset": {
+      "equal": true,
+      "mismatchedChannels": 0,
+      "mismatchedPixels": 0,
+      "maxAbsoluteDifference": 0,
+      "meanAbsoluteDifference": 0
+    },
+    "content": {
+      "nontrivialRGB": true,
+      "distinctRGBAtLeast": 256,
+      "minRGB": 0,
+      "maxRGB": 255,
+      "nonOpaquePixels": 0
+    }
+  },
+  "contextRestore": {
+    "supported": true,
+    "restored": true,
+    "pixels": {
+      "equal": true,
+      "mismatchedChannels": 0,
+      "mismatchedPixels": 0,
+      "maxAbsoluteDifference": 0,
+      "meanAbsoluteDifference": 0
+    },
+    "temporalSupported": true,
+    "temporalPixels": {
+      "equal": true,
+      "mismatchedChannels": 0,
+      "mismatchedPixels": 0,
+      "maxAbsoluteDifference": 0,
+      "meanAbsoluteDifference": 0
+    },
+    "temporalFrames": {
+      "before": 3,
+      "after": 3
+    },
+    "reason": null
+  }
+}
