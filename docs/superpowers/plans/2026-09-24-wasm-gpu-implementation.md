@@ -12,6 +12,8 @@
 
 ## Global Constraints
 
+- Latest user instruction: keep exactly two engines, WASM SIMD + GPU and original JavaScript + GPU. The single accepted GPU renderer is shared; remove Auto, scalar WASM and experimental shader selection from shipped code/build. Earlier multi-variant experiments below are historical.
+
 - Preserve formula, fixed-point rounding, precision, iteration budget and AA when comparing speed.
 - No fast-math or relaxed SIMD for the numerical kernel.
 - Require stable memory during each hot loop and discard cancelled/stale computations.
@@ -101,3 +103,4 @@ Files: `src/benchmark.ts`, `tests/wasm.test.ts`, `README.md`, `docs/performance.
 - Ruling: retain pooled transfer transport; measured worker overhead is small. Co-located/shared transport experiment deferred and explicitly recorded in performance.md, no zero-copy claim.
 - Limitation: iOS draw batching, cross-GPU equivalence, very-high-precision arithmetic acceleration and energy profiling are not validated; desktop Chromium is the verified target.
 - Final review: corrected inverted DOM Y mapping, temporal AA omission, stale-resource disposal after context restoration and final-slice cancellation boundary; all relevant regressions verified.
+- Follow-up complete: removed scalar binary/build path, Auto/variant plumbing, baseline shader and toggle UI. SIMD-versus-JS numerical/image benchmarks remain; scalar test duplication removed, 44 tests pass. Native scalar arithmetic remains only to run Rust tests on the host.

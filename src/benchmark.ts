@@ -68,54 +68,50 @@ function referenceRequest(id: number, x: string, y: string, bits: number, iterat
   return { id, x: String(decimalToFixed(x, bits)), y: String(decimalToFixed(y, bits)), bits, iterations, fold: 1, celtic: 0 };
 }
 
-async function cpuCase(name: string, request: ReferenceRequest, cores: { scalar: WasmCore; simd: WasmCore }, progress: (message: string) => void) {
+async function cpuCase(name: string, request: ReferenceRequest, core: WasmCore, progress: (message: string) => void) {
   const runners = {
     js: () => computeReferenceJs(request, () => false, noYield),
-    scalar: () => cores.scalar.compute(request, () => false, noYield),
-    simd: () => cores.simd.compute(request, () => false, noYield),
+    wasm: () => core.compute(request, () => false, noYield),
   };
-  const samples = { js: [] as number[], scalar: [] as number[], simd: [] as number[] };
+  const samples = { js: [] as number[], wasm: [] as number[] };
   const latest: Partial<Record<keyof typeof runners, ReferenceResult>> = {};
-  for (let round = 0; round < WARMUPS; round++) for (const variant of ['js', 'scalar', 'simd'] as const) {
+  for (let round = 0; round < WARMUPS; round++) for (const variant of ['js', 'wasm'] as const) {
     progress(`CPU ${name}: прогрев ${round + 1}/${WARMUPS}, ${variant}`);
     await pause(); latest[variant] = await runners[variant]();
   }
-  const memoryBefore = { scalar: cores.scalar.memoryBytes, simd: cores.simd.memoryBytes };
-  const memoryStable = { scalar: true, simd: true };
+  const memoryBefore = core.memoryBytes;
+  let memoryStable = true;
   // No timer/rAF/scheduler yields occur inside either numerical kernel. The
   // event-loop yield and byte comparisons below are outside each timed sample.
   for (let round = 0; round < RUNS; round++) {
-    const variants = round % 2 ? ['simd', 'scalar', 'js'] as const : ['js', 'scalar', 'simd'] as const;
+    const variants = round % 2 ? ['wasm', 'js'] as const : ['js', 'wasm'] as const;
     for (const variant of variants) {
       progress(`CPU ${name}: ${round + 1}/${RUNS}, ${variant}`); await pause();
       const started = performance.now();
       latest[variant] = await runners[variant]();
       samples[variant].push(performance.now() - started);
-      memoryStable.scalar &&= cores.scalar.memoryBytes === memoryBefore.scalar;
-      memoryStable.simd &&= cores.simd.memoryBytes === memoryBefore.simd;
+      memoryStable &&= core.memoryBytes === memoryBefore;
     }
   }
-  const js = latest.js!, scalar = latest.scalar!, simd = latest.simd!;
-  const jsTime = summary(samples.js), scalarTime = summary(samples.scalar), simdTime = summary(samples.simd);
+  const js = latest.js!, wasm = latest.wasm!;
+  const jsTime = summary(samples.js), wasmTime = summary(samples.wasm);
   const report = {
     name, bits: request.bits, iterations: request.iterations, length: js.length, capacity: js.capacity,
-    js: jsTime, scalar: { ...scalarTime, memoryMode: cores.scalar.views.mode, memoryBytes: cores.scalar.memoryBytes, memoryBytesStable: memoryStable.scalar },
-    simd: { ...simdTime, memoryMode: cores.simd.views.mode, memoryBytes: cores.simd.memoryBytes, memoryBytesStable: memoryStable.simd },
-    scalarSpeedupVsJs: jsTime.medianMs / scalarTime.medianMs,
-    simdSpeedupVsJs: jsTime.medianMs / simdTime.medianMs,
-    simdSpeedupVsScalar: scalarTime.medianMs / simdTime.medianMs,
-    exactArrays: { scalar: byteDiff(scalar, js), simd: byteDiff(simd, js) },
+    js: jsTime,
+    wasm: { ...wasmTime, memoryMode: core.views.mode, memoryBytes: core.memoryBytes, memoryBytesStable: memoryStable },
+    wasmSpeedupVsJs: jsTime.medianMs / wasmTime.medianMs,
+    exactArrays: byteDiff(wasm, js),
   };
-  return { report, js, wasm: scalar };
+  return { report, js, wasm };
 }
 
-async function workerCase(expected: ReferenceResult, local: { scalar: { medianMs: number }; simd: { medianMs: number } },
+async function workerCase(expected: ReferenceResult, local: { js: { medianMs: number }; wasm: { medianMs: number } },
   progress: (message: string) => void) {
   const client = new ReferenceClient();
   const request = referenceRequest(7100, WESTERN_ARMADA.x, WESTERN_ARMADA.y, 576, ITERATIONS);
   const variants = [];
   try {
-    for (const backend of ['wasm', 'simd'] as const) {
+    for (const backend of ['wasm', 'js'] as const) {
       const wall: number[] = [], computation: number[] = [];
       let memoryBytes = 0, memoryMode = '', memoryBytesStable = true, allArraysEqual = true;
       for (let round = -WARMUPS; round < RUNS; round++) {
@@ -133,7 +129,7 @@ async function workerCase(expected: ReferenceResult, local: { scalar: { medianMs
         client.recycle(result.result);
       }
       const wallTime = summary(wall), computationTime = summary(computation);
-      const localMedian = backend === 'wasm' ? local.scalar.medianMs : local.simd.medianMs;
+      const localMedian = local[backend].medianMs;
       variants.push({ backend, wall: wallTime, computation: computationTime, localMedianMs: localMedian,
         workerWallOverLocalRatio: wallTime.medianMs / localMedian,
         workerComputationOverLocalRatio: computationTime.medianMs / localMedian,
@@ -169,12 +165,12 @@ async function workerCase(expected: ReferenceResult, local: { scalar: { medianMs
   } finally { client.dispose(); }
 }
 
-function makeView(zoom: number | null, optimized: boolean, referenceKey: number): RenderView {
+function makeView(zoom: number | null, referenceKey: number): RenderView {
   const logScale = Math.log2(3.2) - (zoom ?? 0) * Math.log2(10);
   return {
     center: zoom === null ? [-.45, -.45] : [Number(WESTERN_ARMADA.x), Number(WESTERN_ARMADA.y)],
     scale: 2 ** logScale, logScale, offsetX: [0, 0], offsetY: [0, 0], iterations: ITERATIONS,
-    fold: 1, celtic: 0, aa: AA, hue: 0, optimized, guided: false, referenceKey,
+    fold: 1, celtic: 0, aa: AA, hue: 0, guided: false, referenceKey,
   };
 }
 
@@ -199,50 +195,45 @@ async function gpuCase(renderer: FractalRenderer, zoom: number | null, js: Refer
   progress: (message: string) => void) {
   const name = zoom === null ? 'overview' : `western-armada-10^${zoom}`;
   renderer.setReference(wasm);
-  for (let round = 0; round < WARMUPS; round++) for (const optimized of [false, true]) {
-    progress(`GPU ${name}: прогрев ${round + 1}/${WARMUPS}, ${optimized ? 'optimized' : 'baseline'}`);
-    renderer.render(makeView(zoom, optimized, wasm.id));
+  for (let round = 0; round < WARMUPS; round++) {
+    progress(`GPU ${name}: прогрев ${round + 1}/${WARMUPS}`);
+    renderer.render(makeView(zoom, wasm.id));
     renderer.readPixels(); // Finish warmup/compilation before beginning the measured set.
     await pause();
   }
   renderer.clearGpuTimings();
-  const samples = { baseline: [] as number[], optimized: [] as number[] };
-  for (let round = 0; round < RUNS; round++) for (const optimized of round % 2 ? [true, false] : [false, true]) {
-    const variant = optimized ? 'optimized' : 'baseline';
-    progress(`GPU ${name}: ${round + 1}/${RUNS}, ${variant}`);
-    renderer.render(makeView(zoom, optimized, wasm.id));
+  const samples: number[] = [];
+  for (let round = 0; round < RUNS; round++) {
+    progress(`GPU ${name}: ${round + 1}/${RUNS}`);
+    renderer.render(makeView(zoom, wasm.id));
     const elapsed = await gpuQuery(renderer, renderer.stats.frame);
-    if (elapsed !== null) samples[variant].push(elapsed);
+    if (elapsed !== null) samples.push(elapsed);
   }
-  renderer.render(makeView(zoom, false, wasm.id)); const baselinePixels = renderer.readPixels();
-  renderer.render(makeView(zoom, true, wasm.id)); const optimizedPixels = renderer.readPixels();
+  renderer.render(makeView(zoom, wasm.id)); const wasmPixels = renderer.readPixels();
   renderer.setReference(js);
-  renderer.render(makeView(zoom, true, js.id)); const jsPixels = renderer.readPixels();
-  const baselineVsOptimized = pixelDiff(baselinePixels, optimizedPixels);
-  const jsVsWasmPixels = pixelDiff(jsPixels, optimizedPixels);
-  const content = imageContent(optimizedPixels);
-  const performanceComparisonAccepted = baselineVsOptimized.equal && jsVsWasmPixels.equal && content.nontrivialRGB;
-  const baselineGpu = samples.baseline.length === RUNS ? summary(samples.baseline) : null;
-  const optimizedGpu = samples.optimized.length === RUNS ? summary(samples.optimized) : null;
+  renderer.render(makeView(zoom, js.id)); const jsPixels = renderer.readPixels();
+  const jsVsWasmPixels = pixelDiff(jsPixels, wasmPixels);
+  const content = imageContent(wasmPixels);
+  const gpuTime = samples.length === RUNS ? summary(samples) : null;
   await pause();
   return {
-    name, zoomPower10: zoom, path: renderer.stats.path, logScale: makeView(zoom, true, wasm.id).logScale,
-    baselineVsOptimized, jsVsWasmPixels, content, performanceComparisonAccepted, gpuTimerSupported: renderer.gpuTimerSupported,
-    baselineGpu, optimizedGpu, gpuSamplesReceived: { baseline: samples.baseline.length, optimized: samples.optimized.length },
-    gpuSpeedup: performanceComparisonAccepted && baselineGpu && optimizedGpu ? baselineGpu.medianMs / optimizedGpu.medianMs : null,
+    name, zoomPower10: zoom, path: renderer.stats.path, logScale: makeView(zoom, wasm.id).logScale,
+    jsVsWasmPixels, content, gpuTimerSupported: renderer.gpuTimerSupported,
+    gpuTime, gpuSamplesReceived: samples.length,
   };
 }
 
-async function ringCase(renderer: FractalRenderer, reference: ReferenceResult, progress: (message: string) => void) {
-  renderer.setReference(reference);
+async function ringCase(renderer: FractalRenderer, js: ReferenceResult, wasm: ReferenceResult,
+  progress: (message: string) => void) {
   const images: Uint8Array[] = [];
   const variants = [];
-  for (const optimized of [false, true]) {
-    const view = { ...makeView(30, optimized, reference.id), guided: true };
+  for (const reference of [js, wasm]) {
+    renderer.setReference(reference);
+    const view = { ...makeView(30, reference.id), guided: true };
     const initialRows = renderer.stats.ringsDrawn;
     let frames = 0;
     do {
-      progress(`Кольцевой кэш: ${optimized ? 'optimized' : 'baseline'}, заполнение ${frames + 1}`);
+      progress(`Кольцевой кэш: ${reference.backend}, заполнение ${frames + 1}`);
       renderer.render(view); frames++;
       await pause();
       if (frames >= 128 && !renderer.stats.ringActive) throw new Error('Кольцевой кэш не заполнился за 128 кадров при 320×200.');
@@ -255,7 +246,7 @@ async function ringCase(renderer: FractalRenderer, reference: ReferenceResult, p
     const beforeZoom = renderer.stats.ringsDrawn, samplesBeforeZoom = renderer.stats.ringSamples;
     const zoomed = { ...view, logScale: view.logScale - .02, scale: view.scale * 2 ** -.02 };
     renderer.render(zoomed);
-    variants.push({ optimized, initialFillFrames: frames, initialRows: fullRows,
+    variants.push({ backend: reference.backend, initialFillFrames: frames, initialRows: fullRows,
       repeatedViewNewRows, zeroWorkOnRepeatedView: repeatedViewNewRows === 0,
       zoomNewRows: renderer.stats.ringsDrawn - beforeZoom,
       zoomNewSamples: renderer.stats.ringSamples - samplesBeforeZoom,
@@ -263,13 +254,13 @@ async function ringCase(renderer: FractalRenderer, reference: ReferenceResult, p
     });
     await pause();
   }
-  return { enabled: true, zoomPower10: 30, baselineVsOptimized: pixelDiff(images[0], images[1]),
+  return { enabled: true, zoomPower10: 30, jsVsWasmPixels: pixelDiff(images[0], images[1]),
     content: imageContent(images[1]), variants };
 }
 
 type TemporalRenderer = FractalRenderer & { readonly settling: boolean; resetTemporal(): void };
-function temporalView(reference: ReferenceResult, optimized: boolean): RenderView {
-  return { ...makeView(30, optimized, reference.id), aa: 3, temporal: true,
+function temporalView(reference: ReferenceResult): RenderView {
+  return { ...makeView(30, reference.id), aa: 3, temporal: true,
     position: { x: decimalToFixed(WESTERN_ARMADA.x, reference.bits), y: decimalToFixed(WESTERN_ARMADA.y, reference.bits), bits: reference.bits } };
 }
 async function settleTemporal(renderer: FractalRenderer, view: RenderView) {
@@ -283,21 +274,23 @@ async function settleTemporal(renderer: FractalRenderer, view: RenderView) {
   } while (temporal.settling);
   return frames;
 }
-async function temporalCase(renderer: FractalRenderer, reference: ReferenceResult, progress: (message: string) => void) {
+async function temporalCase(renderer: FractalRenderer, js: ReferenceResult, wasm: ReferenceResult,
+  progress: (message: string) => void) {
   if (!('resetTemporal' in renderer)) return { supported: false, reason: 'Temporal API pending', enabled: false, aaSamples: 3,
-    zoomPower10: 30, baselineFrames: null, optimizedFrames: null, resetFrames: null, settledAtRequestedSamples: false,
-    baselineVsOptimized: null, repeatAfterReset: null, content: null };
+    zoomPower10: 30, jsFrames: null, wasmFrames: null, resetFrames: null, settledAtRequestedSamples: false,
+    jsVsWasmPixels: null, repeatAfterReset: null, content: null };
   progress('Temporal AA: сравнение полностью накопленных кадров');
-  renderer.setReference(reference);
-  const baselineFrames = await settleTemporal(renderer, temporalView(reference, false));
-  const baseline = renderer.readPixels();
-  const optimizedFrames = await settleTemporal(renderer, temporalView(reference, true));
-  const optimized = renderer.readPixels();
-  const resetFrames = await settleTemporal(renderer, temporalView(reference, true));
-  return { supported: true, reason: null, enabled: true, aaSamples: 3, zoomPower10: 30, baselineFrames, optimizedFrames, resetFrames,
-    settledAtRequestedSamples: baselineFrames === 3 && optimizedFrames === 3 && resetFrames === 3,
-    baselineVsOptimized: pixelDiff(baseline, optimized),
-    repeatAfterReset: pixelDiff(optimized, renderer.readPixels()), content: imageContent(optimized) };
+  renderer.setReference(js);
+  const jsFrames = await settleTemporal(renderer, temporalView(js));
+  const jsPixels = renderer.readPixels();
+  renderer.setReference(wasm);
+  const wasmFrames = await settleTemporal(renderer, temporalView(wasm));
+  const wasmPixels = renderer.readPixels();
+  const resetFrames = await settleTemporal(renderer, temporalView(wasm));
+  return { supported: true, reason: null, enabled: true, aaSamples: 3, zoomPower10: 30, jsFrames, wasmFrames, resetFrames,
+    settledAtRequestedSamples: jsFrames === 3 && wasmFrames === 3 && resetFrames === 3,
+    jsVsWasmPixels: pixelDiff(jsPixels, wasmPixels),
+    repeatAfterReset: pixelDiff(wasmPixels, renderer.readPixels()), content: imageContent(wasmPixels) };
 }
 
 function contextEvent(canvas: HTMLCanvasElement, type: 'webglcontextlost' | 'webglcontextrestored') {
@@ -319,10 +312,10 @@ async function contextRestoreCase(reference: ReferenceResult, progress: (message
     if (!extension) return { supported: false, restored: null, pixels: null, temporalSupported: false, temporalPixels: null, temporalFrames: null, reason: 'WEBGL_lose_context недоступен' };
     progress('GPU: проверка потери и восстановления контекста');
     renderer.setReference(reference);
-    const view = makeView(10, true, reference.id);
+    const view = makeView(10, reference.id);
     renderer.render(view); const before = renderer.readPixels();
     const temporalSupported = 'resetTemporal' in renderer;
-    const beforeFrames = temporalSupported ? await settleTemporal(renderer, temporalView(reference, true)) : null;
+    const beforeFrames = temporalSupported ? await settleTemporal(renderer, temporalView(reference)) : null;
     const beforeTemporal = temporalSupported ? renderer.readPixels() : null;
     const lost = contextEvent(test.canvas, 'webglcontextlost');
     extension.loseContext(); await lost;
@@ -333,7 +326,7 @@ async function contextRestoreCase(reference: ReferenceResult, progress: (message
     renderer = new FractalRenderer(test.canvas);
     renderer.setReference(reference); renderer.render(view);
     const pixels = pixelDiff(before, renderer.readPixels());
-    const afterFrames = temporalSupported ? await settleTemporal(renderer, temporalView(reference, true)) : null;
+    const afterFrames = temporalSupported ? await settleTemporal(renderer, temporalView(reference)) : null;
     return { supported: true, restored: true, pixels, temporalSupported, temporalPixels: beforeTemporal ? pixelDiff(beforeTemporal, renderer.readPixels()) : null,
       temporalFrames: { before: beforeFrames, after: afterFrames }, reason: null };
   } catch (error) {
@@ -348,11 +341,10 @@ async function contextRestoreCase(reference: ReferenceResult, progress: (message
 /** Runs on a detached disposable canvas. CPU kernels, shader work and pixel
  * correctness are measured independently; rAF/event-loop cadence is never GPU time. */
 export async function runBenchmark(progress: (message: string) => void) {
-  progress('Загрузка scalar/SIMD WASM для проверки…'); await pause();
-  const [scalar, simd] = await Promise.all([loadWasm('scalar'), loadWasm('simd')]);
-  const cores = { scalar, simd };
-  const deep = await cpuCase('western-armada-576-16384', referenceRequest(7001, WESTERN_ARMADA.x, WESTERN_ARMADA.y, 576, ITERATIONS), cores, progress);
-  const interior = await cpuCase('interior-origin-128-1024', referenceRequest(7002, '0', '0', 128, 1024), cores, progress);
+  progress('Загрузка WASM SIMD для проверки…'); await pause();
+  const wasm = await loadWasm();
+  const deep = await cpuCase('western-armada-576-16384', referenceRequest(7001, WESTERN_ARMADA.x, WESTERN_ARMADA.y, 576, ITERATIONS), wasm, progress);
+  const interior = await cpuCase('interior-origin-128-1024', referenceRequest(7002, '0', '0', 128, 1024), wasm, progress);
   const worker = await workerCase(deep.js, deep.report, progress);
   progress('Raw Worker: проверка отмены до начала GPU измерений…');
   await pause();
@@ -368,21 +360,21 @@ export async function runBenchmark(progress: (message: string) => void) {
   try {
     const gpu = [];
     for (const zoom of [null, 10, 30, 90, 120]) gpu.push(await gpuCase(renderer, zoom, deep.js, deep.wasm, progress));
-    const rings = await ringCase(renderer, deep.wasm, progress);
-    const temporal = await temporalCase(renderer, deep.wasm, progress);
+    const rings = await ringCase(renderer, deep.js, deep.wasm, progress);
+    const temporal = await temporalCase(renderer, deep.js, deep.wasm, progress);
     const contextRestore = await contextRestoreCase(deep.wasm, progress);
     const cpu = [deep.report, interior.report];
-    const memoryBytesStable = cpu.every(item => item.scalar.memoryBytesStable && item.simd.memoryBytesStable)
+    const memoryBytesStable = cpu.every(item => item.wasm.memoryBytesStable)
       && worker.variants.every(item => item.memoryBytesStable) && worker.cancellation.memoryAfterRaceStable;
     const workerChecksPassed = worker.variants.every(item => item.allArraysEqual)
       && worker.cancellation.firstRejectedWithAbortError && worker.cancellation.replacementArrays.equal && worker.cancellation.recycledRunsExact;
     const rawCancellationChecksPassed = cancellationProbe.checks.passed;
-    const exactReferenceArrays = cpu.every(item => item.exactArrays.scalar.equal && item.exactArrays.simd.equal);
-    const exactGpuPixels = gpu.every(item => item.baselineVsOptimized.equal && item.jsVsWasmPixels.equal);
+    const exactReferenceArrays = cpu.every(item => item.exactArrays.equal);
+    const exactGpuPixels = gpu.every(item => item.jsVsWasmPixels.equal);
     const nontrivialGpuImages = gpu.every(item => item.content.nontrivialRGB);
-    const ringChecksPassed = rings.baselineVsOptimized.equal && rings.content.nontrivialRGB
+    const ringChecksPassed = rings.jsVsWasmPixels.equal && rings.content.nontrivialRGB
       && rings.variants.every(item => item.zeroWorkOnRepeatedView && item.zoomNewRows > 0 && item.zoomReusedCache);
-    const temporalChecksPassed = temporal.supported && temporal.settledAtRequestedSamples && temporal.baselineVsOptimized?.equal === true
+    const temporalChecksPassed = temporal.supported && temporal.settledAtRequestedSamples && temporal.jsVsWasmPixels?.equal === true
       && temporal.repeatAfterReset?.equal === true && temporal.content?.nontrivialRGB === true;
     const contextRestorePassed = !contextRestore.supported || (contextRestore.restored === true && contextRestore.pixels?.equal === true
       && (!contextRestore.temporalSupported || (contextRestore.temporalPixels?.equal === true
@@ -391,11 +383,10 @@ export async function runBenchmark(progress: (message: string) => void) {
     return {
       kind: 'burning-ship-browser-benchmark', createdAt: new Date().toISOString(), userAgent: navigator.userAgent,
       hardwareConcurrency: navigator.hardwareConcurrency, devicePixelRatio, gpuDevice,
-      resizableMemory: { scalar: scalar.views.mode === 'resizable', simd: simd.views.mode === 'resizable',
-        scalarBufferResizable: (scalar.views.bytes().buffer as ArrayBuffer & { resizable?: boolean }).resizable ?? false,
-        simdBufferResizable: (simd.views.bytes().buffer as ArrayBuffer & { resizable?: boolean }).resizable ?? false },
+      resizableMemory: { wasm: wasm.views.mode === 'resizable',
+        wasmBufferResizable: (wasm.views.bytes().buffer as ArrayBuffer & { resizable?: boolean }).resizable ?? false },
       settings: { width: WIDTH, height: HEIGHT, aaSamples: AA, iterations: ITERATIONS, referenceBits: 576,
-        warmups: WARMUPS, measuredRuns: RUNS, gpuVariantsAlternated: true,
+        warmups: WARMUPS, measuredRuns: RUNS,
         cpuTiming: 'performance.now; no scheduler yields inside compute', gpuTiming: 'EXT_disjoint_timer_query_webgl2; null when unavailable',
         pixelFormat: 'RGBA8', canvasAttached: false },
       memoryBytesStable, checks: { exactReferenceArrays, exactGpuPixels, nontrivialGpuImages, ringChecksPassed, temporalChecksPassed, contextRestorePassed, workerChecksPassed, rawCancellationChecksPassed,

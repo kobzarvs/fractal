@@ -15,8 +15,8 @@ const cases = caseOption
   : referenceCases;
 if (cases.length === 0) throw new Error(`Unknown fixture: ${caseOption}`);
 
-async function loadCore(variant) {
-  const binary = await readFile(new URL(`../public/wasm/core-${variant}.wasm`, import.meta.url));
+async function loadCore() {
+  const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
   const { instance } = await WebAssembly.instantiate(binary, {});
   return new WasmCore(instance, false);
 }
@@ -67,8 +67,7 @@ async function measure(run, memoryBytes) {
 }
 
 async function main() {
-  const scalar = await loadCore('scalar');
-  const simd = await loadCore('simd');
+  const wasm = await loadCore();
   const output = {
     kind: 'cpu-reference',
     node: process.version,
@@ -78,19 +77,14 @@ async function main() {
   };
   for (const { name, request } of cases) {
     const expected = await computeReferenceJs(request, () => false, noYield);
-    const scalarResult = await scalar.compute(request, () => false, noYield);
-    const simdResult = await simd.compute(request, () => false, noYield);
-    assertSame(scalarResult, expected, `scalar/${name}`);
-    assertSame(simdResult, expected, `simd/${name}`);
+    const wasmResult = await wasm.compute(request, () => false, noYield);
+    assertSame(wasmResult, expected, `wasm/${name}`);
     const js = await measure(() => computeReferenceJs(request, () => false, noYield));
-    const scalarTime = await measure(() => scalar.compute(request, () => false, noYield),
-      () => scalar.memoryBytes);
-    const simdTime = await measure(() => simd.compute(request, () => false, noYield),
-      () => simd.memoryBytes);
+    const wasmTime = await measure(() => wasm.compute(request, () => false, noYield),
+      () => wasm.memoryBytes);
     output.cases.push({ name, bits: request.bits, iterations: request.iterations,
-      length: expected.length, js, scalar: scalarTime, simd: simdTime,
-      scalarSpeedup: js.medianMs / scalarTime.medianMs,
-      simdSpeedup: js.medianMs / simdTime.medianMs });
+      length: expected.length, js, wasm: wasmTime,
+      wasmSpeedupVsJs: js.medianMs / wasmTime.medianMs });
   }
   process.stdout.write(`${JSON.stringify(output)}\n`);
 }

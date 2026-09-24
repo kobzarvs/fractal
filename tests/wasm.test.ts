@@ -9,8 +9,8 @@ import { referenceCases } from './fixtures.ts';
 const ARRAYS = ['orbit', 'realOrbit', 'blaA', 'blaB', 'blaBounds'] as const;
 const noYield = async () => {};
 
-async function core(variant: 'scalar' | 'simd'): Promise<WasmCore> {
-  const binary = await readFile(new URL(`../public/wasm/core-${variant}.wasm`, import.meta.url));
+async function core(): Promise<WasmCore> {
+  const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
   const { instance } = await WebAssembly.instantiate(binary, {});
   return new WasmCore(instance, false);
 }
@@ -64,26 +64,24 @@ function adversarialCases(): { name: string; request: ReferenceRequest }[] {
   return cases;
 }
 
-for (const variant of ['scalar', 'simd'] as const) {
-  test(`${variant} WASM matches the BigInt oracle byte-for-byte`, async t => {
-    const wasm = await core(variant);
-    for (const { name, request } of [...referenceCases, ...adversarialCases()]) {
-      await t.test(name, async () => {
-        const expected = await computeReferenceJs(request, () => false, noYield);
-        const actual = await wasm.compute(request, () => false, noYield);
-        assertIdentical(actual, expected, `${variant}/${name}`);
-      });
-    }
-  });
+test('SIMD WASM matches the BigInt oracle byte-for-byte', async t => {
+  const wasm = await core();
+  for (const { name, request } of [...referenceCases, ...adversarialCases()]) {
+    await t.test(name, async () => {
+      const expected = await computeReferenceJs(request, () => false, noYield);
+      const actual = await wasm.compute(request, () => false, noYield);
+      assertIdentical(actual, expected, `wasm/${name}`);
+    });
+  }
+});
 
-  test(`${variant} retains valid result views after memory growth and repeated runs`, async () => {
-    const wasm = await core(variant);
-    const request = referenceCases.at(-1)!.request;
-    const first = await wasm.compute(request, () => false, noYield);
-    const warmBytes = wasm.memoryBytes;
-    const second = await wasm.compute(request, () => false, noYield);
-    assert.equal(wasm.memoryBytes, warmBytes, 'same request must reuse allocated memory');
-    assertIdentical(second, first, `${variant}/repeat`);
-    assert.equal(first.orbit[0], 0, 'copied first result stays readable');
-  });
-}
+test('SIMD WASM retains valid result views after memory growth and repeated runs', async () => {
+  const wasm = await core();
+  const request = referenceCases.at(-1)!.request;
+  const first = await wasm.compute(request, () => false, noYield);
+  const warmBytes = wasm.memoryBytes;
+  const second = await wasm.compute(request, () => false, noYield);
+  assert.equal(wasm.memoryBytes, warmBytes, 'same request must reuse allocated memory');
+  assertIdentical(second, first, 'wasm/repeat');
+  assert.equal(first.orbit[0], 0, 'copied first result stays readable');
+});

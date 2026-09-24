@@ -13,7 +13,7 @@ export interface RenderView {
   center: [number, number]; scale: number; logScale: number;
   offsetX: [number, number]; offsetY: [number, number];
   iterations: number; fold: number; celtic: number; aa: number; hue: number;
-  optimized: boolean; guided: boolean; referenceKey: number;
+  guided: boolean; referenceKey: number;
   temporal?: boolean;
   position?: { x: bigint; y: bigint; bits: number };
 }

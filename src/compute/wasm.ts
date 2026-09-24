@@ -74,13 +74,19 @@ export class WasmCore {
     } finally { this.busy = false; }
   }
 }
-export async function loadWasm(variant: 'scalar' | 'simd' = 'scalar'): Promise<WasmCore> {
-  const response = await fetch(`${import.meta.env.BASE_URL}wasm/core-${variant}.wasm`);
+export async function loadWasm(): Promise<WasmCore> {
+  const response = await fetch(`${import.meta.env.BASE_URL}wasm/core-simd.wasm`);
   if (!response.ok) throw new Error(`WASM: HTTP ${response.status}. Выполните npm run build:wasm.`);
   // Streaming compilation avoids buffering when the server sends application/wasm.
   const fallback = response.clone();
   let instance: WebAssembly.Instance;
   try { ({ instance } = await WebAssembly.instantiateStreaming(response, {})); }
-  catch { ({ instance } = await WebAssembly.instantiate(await fallback.arrayBuffer(), {})); }
+  catch {
+    try { ({ instance } = await WebAssembly.instantiate(await fallback.arrayBuffer(), {})); }
+    catch (error) {
+      if (error instanceof WebAssembly.CompileError) throw new Error('Не удалось загрузить WASM SIMD. Выберите JavaScript или пересоберите ядро.');
+      throw error;
+    }
+  }
   return new WasmCore(instance);
 }

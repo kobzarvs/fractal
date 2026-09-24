@@ -18,13 +18,8 @@ in vec2 vUv;
 out vec4 fragmentColour;
 uniform vec2 center;
 uniform float scale;
-#ifdef SHIP_FULL
-#define fold 1.0
-#define celtic 0.0
-#else
 uniform float fold;
 uniform float celtic;
-#endif
 uniform float hue;
 uniform float aspect;
 uniform vec2 res;
@@ -34,29 +29,14 @@ uniform int iterations;
 
 #define SHIP_LOOP_LIMIT iterations
 
-float shipIterationMetric = 0.0;
-#if !defined(SHIP_PROBE) && !defined(SHIP_BATCH_STEPS)
-
-#endif
 
 vec3 shipColour(float smoothIteration) {
-    shipIterationMetric = smoothIteration;
-#ifdef SHIP_PROBE
-    float value = clamp(floor(smoothIteration * 16.0), 1.0, 16777215.0);
-    return vec3(mod(value, 256.0), mod(floor(value / 256.0), 256.0), floor(value / 65536.0)) / 255.0;
-#else
     vec3 colour = 0.5 + 0.5 * cos(0.18 * smoothIteration + hue + vec3(0.0, 0.7, 1.5));
     return colour * (0.3 + 0.7 * (1.0 - exp(-0.08 * smoothIteration)));
-#endif
 }
 
 vec3 shipInterior() {
-    shipIterationMetric = 0.0;
-#ifdef SHIP_PROBE
-    return vec3(0.0);
-#else
     return vec3(0.006, 0.008, 0.012);
-#endif
 }
 
 #ifdef SHIP_RING
@@ -77,10 +57,6 @@ vec3 sampleShipDirect(vec2 uv) {
     vec2 c = center + shipOffset(uv) * scale;
     vec2 z = vec2(0.0);
     int iteration = 0;
-#ifdef SHIP_BATCH_STEPS
-    z = savedDelta.xy;
-    iteration = savedIndex.y;
-#endif
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
         if (iteration >= iterations) break;
         int i = iteration++;
@@ -94,9 +70,6 @@ vec3 sampleShipDirect(vec2 uv) {
             return shipColour(smoothIteration);
         }
     }
-#ifdef SHIP_BATCH_STEPS
-    if (iteration < iterations) suspendShip(vec4(z, 0.0, 0.0), 0, iteration);
-#endif
     return shipInterior();
 }
 
@@ -172,9 +145,8 @@ ivec2 blaAt(int index, int level) {
     return ivec2(block % SHIP_REFERENCE_WIDTH, block / SHIP_REFERENCE_WIDTH);
 }
 // The longest aligned block that may start at a positive index within the
-// budget. The lowest set bit is the alignment; its logarithm is exact.
+// budget. Integer trailing-zero count gives the exact power-of-two alignment.
 int blaTopLevel(int index, int iteration) {
-    #ifdef SHIP_OPTIMIZED
     uint bits = uint(index);
     int level = 0;
     if ((bits & 65535u) == 0u) { level += 16; bits >>= 16; }
@@ -183,9 +155,6 @@ int blaTopLevel(int index, int iteration) {
     if ((bits & 3u) == 0u) { level += 2; bits >>= 2; }
     if ((bits & 1u) == 0u) level++;
     level = min(SHIP_BLA_LEVELS, level);
-#else
-    int level = min(SHIP_BLA_LEVELS, int(log2(float(index & -index)) + 0.5));
-#endif
     while (level > 0 && (index + (1 << level) >= referenceLength || iteration + (1 << level) > iterations))
         level--;
     return level;
@@ -252,13 +221,6 @@ bool continueShipFloat(inout vec2 d, inout int m, inout int n, vec2 dc, out vec3
             colour = shipInterior();
             return true;
         }
-#ifdef SHIP_BATCH_STEPS
-        if (work >= SHIP_BATCH_STEPS) break;
-#endif
-        #ifndef SHIP_OPTIMIZED
-        rfe = orbitAt(m);
-        r = vec2(valueFE(rfe.xy), valueFE(rfe.zw));
-#endif
         if ((rfe.x != 0.0 && rfe.y < -60.0) || (rfe.z != 0.0 && rfe.w < -60.0)) break;
         if (celtic > 0.0) {
             vec2 q = realAt(m);
@@ -283,9 +245,6 @@ bool continueShipFloat(inout vec2 d, inout int m, inout int n, vec2 dc, out vec3
         rfe = rebase ? vec4(0.0) : nextR;
         r = rebase ? vec2(0.0) : nextRValue;
         n++;
-#ifdef SHIP_BATCH_STEPS
-        work++;
-#endif
     }
     return false;
 }
@@ -298,19 +257,10 @@ vec3 sampleShipPerturbed(vec2 uv) {
     vec2 dx = vec2(0.0), dy = vec2(0.0);
     int referenceIndex = 0;
     int iteration = 0;
-#ifdef SHIP_BATCH_STEPS
-    dx = savedDelta.xy;
-    dy = savedDelta.zw;
-    referenceIndex = savedIndex.x;
-    iteration = savedIndex.y;
-#endif
     // The reference at referenceIndex, carried between steps.
     vec4 reference = orbitAt(referenceIndex);
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
         if (iteration >= iterations) break;
-#ifdef SHIP_BATCH_STEPS
-        if (work >= SHIP_BATCH_STEPS) break;
-#endif
         if (min(dx.y, dy.y) > -50.0 && max(dx.y, dy.y) > -40.0 && dx.x != 0.0 && dy.x != 0.0) {
             vec2 d = vec2(valueFE(dx), valueFE(dy));
             // Underflowed dc is negligible for accepted native results, but
@@ -321,9 +271,6 @@ vec3 sampleShipPerturbed(vec2 uv) {
             dx = numberFE(d.x);
             dy = numberFE(d.y);
             reference = orbitAt(referenceIndex);
-#ifdef SHIP_BATCH_STEPS
-            if (iteration >= iterations || work >= SHIP_BATCH_STEPS) break;
-#endif
         }
         bool skipped = false;
         // Try the longest aligned block first; each is valid only if its first
@@ -345,9 +292,6 @@ vec3 sampleShipPerturbed(vec2 uv) {
             }
         }
         if (!skipped) {
-            #ifndef SHIP_OPTIMIZED
-            reference = orbitAt(referenceIndex);
-#endif
             vec2 X = reference.xy, Y = reference.zw;
             vec2 realDelta = addFE(twiceFE(addFE(multiplyFE(X, dx), negateFE(multiplyFE(Y, dy)))),
                                   addFE(multiplyFE(dx, dx), negateFE(multiplyFE(dy, dy))));
@@ -383,14 +327,7 @@ vec3 sampleShipPerturbed(vec2 uv) {
             referenceIndex = 0;
             reference = vec4(0.0);
         }
-#ifdef SHIP_BATCH_STEPS
-        work++;
-#endif
     }
-#ifdef SHIP_BATCH_STEPS
-    if (iteration < iterations)
-        suspendShip(vec4(dx, dy), referenceIndex, iteration);
-#endif
     return shipInterior();
 }
 
@@ -404,11 +341,6 @@ vec3 sampleShipFloat(vec2 uv) {
     float dcLog = log2(max(abs(dc.x), abs(dc.y)));
     vec2 d = vec2(0.0);
     int m = 0, n = 0;
-#ifdef SHIP_BATCH_STEPS
-    d = savedDelta.xy;
-    m = savedIndex.x;
-    n = savedIndex.y;
-#endif
     // The reference at m, carried from the previous step's escape check.
     vec2 r = orbitFloat(m);
     for (int step = 0; step < SHIP_LOOP_LIMIT; step++) {
@@ -433,9 +365,6 @@ vec3 sampleShipFloat(vec2 uv) {
             }
         }
         if (!skipped) {
-            #ifndef SHIP_OPTIMIZED
-            r = orbitFloat(m);
-#endif
             d = vec2(realDifference(r, d, m),
                      2.0 * foldedProductDifference(r, d)) + dc;
             n++; m++;
@@ -446,13 +375,10 @@ vec3 sampleShipFloat(vec2 uv) {
         if (radius2 > 65536.0) return shipColour(float(n) + 1.0 - log2(log2(radius2) * 0.5));
         if (m >= referenceLength - 1 || radius2 < dot(d, d)) { d = z; m = 0; r = vec2(0.0); }
     }
-#ifdef SHIP_BATCH_STEPS
-    if (n < iterations) suspendShip(vec4(d, 0.0, 0.0), m, n);
-#endif
     return shipInterior();
 }
 
-// Each program links one path; material.ts chooses it for the current view.
+// Each program links one path; the renderer chooses it for the current view.
 vec3 sampleShip(vec2 uv) {
 #if SHIP_PATH == 0
     return sampleShipDirect(uv);
@@ -465,51 +391,28 @@ vec3 sampleShip(vec2 uv) {
 
 
 void main() {
-#ifdef SHIP_BATCH_STEPS
-    savedDelta = vec4(0.0);
-    savedIndex = ivec2(0);
-    if (firstBatch < 0.5) {
-        savedDelta = texture(previousDelta, gl_FragCoord.xy / stateSize);
-        vec4 status = texture(previousStatus, gl_FragCoord.xy / stateSize);
-        // Completed pixels carry their colour through the remaining passes.
-        if (status.z > 0.5) {
-            nextDelta = savedDelta;
-            nextStatus = status;
-            return;
-        }
-        savedIndex = ivec2(status.xy);
-    }
-    vec3 colour = sampleShip(vUv + jitter / res);
-    if (!suspended) {
-        nextDelta = vec4(colour, shipIterationMetric);
-        nextStatus = vec4(0.0, 0.0, 1.0, 0.0);
-    }
-#elif defined(SHIP_PROBE) || defined(SHIP_RING)
+#ifdef SHIP_RING
     fragmentColour = vec4(sampleShip(vUv), 1.0);
 #else
     vec3 colour = vec3(0.0);
-    float metric = 0.0;
     for (int i = 0; i < 5; i++) {
         if (float(i) >= aa) break;
         vec2 offset = aa < 1.5 ? vec2(0.0) :
             vec2((float(i) + 0.5) / aa - 0.5, fract((float(i) + 0.5) * 0.61803398875) - 0.5);
         colour += sampleShip(vUv + (offset + jitter) / res);
-        metric += shipIterationMetric;
     }
     fragmentColour = vec4(colour / aa, 1.0);
 #endif
 }
 `;
 
-// Constant fold/Celtic specialization was rejected by browser pixel tests:
-// compiling them as constants changes GPU rounding/fusion, even on the direct
-// path. Keep uniforms for both variants; only alignment/fetch changes remain.
-export function shipFragment(path: 0 | 1 | 2, optimized: boolean, _fullShip: boolean, ring = false): string {
+// Fold/Celtic stay uniforms: compiling constants changes GPU rounding.
+// This is the pixel-verified shader with integer BLA alignment and orbit reuse.
+export function shipFragment(path: 0 | 1 | 2, ring = false): string {
     return `#version 300 es
 #define SHIP_BLA_LEVELS 10
 #define SHIP_REFERENCE_WIDTH 1024
 #define SHIP_PATH ${path}
-${optimized ? '#define SHIP_OPTIMIZED 1' : ''}
 ${ring ? '#define SHIP_RING 1' : ''}
 ${shipSource}`;
 }
@@ -517,7 +420,6 @@ ${shipSource}`;
 export const ringFragment = `#version 300 es
 #define SHIP_RING_BANDS 16
 precision highp float;
-precision highp int;
 precision highp int;
 
 // Assembles a frame from the ring map built in rings.ts. Band j covers pixel

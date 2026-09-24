@@ -1,8 +1,8 @@
 import type { ReferenceRequest, ReferenceResult } from '../types.ts';
-export type Backend = 'auto' | 'wasm' | 'simd' | 'js';
+export type Backend = 'wasm' | 'js';
 export type ToWorker = { type: 'compute'; request: ReferenceRequest; backend: Backend }
   | { type: 'cancel' } | { type: 'recycle'; buffers: ArrayBuffer[] };
-export type FromWorker = { type: 'result'; result: ReferenceResult; memoryBytes: number; memoryMode: string; variant: 'scalar' | 'simd' | 'js' }
+export type FromWorker = { type: 'result'; result: ReferenceResult; memoryBytes: number; memoryMode: string }
   | { type: 'error'; id: number; error: string };
 export class RequestEpoch {
   private epoch = 0;

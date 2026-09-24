@@ -18,9 +18,7 @@ app.innerHTML = `
     <label class="zoom-label">Увеличение <output id="zoom-value">10⁰</output><input id="zoom" type="range" min="0" max="120" step="0.05" value="0"></label>
     <div class="grid"><label>Итерации<select id="iterations"><option>1024</option><option>4096</option><option>8192</option><option selected>16384</option><option>32768</option><option>65536</option></select></label>
     <label>Сглаживание<select id="aa"><option value="1">1 сэмпл</option><option value="2" selected>2 сэмпла</option><option value="3">3 сэмпла</option><option value="4">4 сэмпла</option><option value="5">5 сэмплов</option></select></label></div>
-    <label>Расчёт орбиты<select id="backend"><option value="auto">Авто · WASM SIMD</option><option value="simd">Rust / WASM SIMD</option><option value="wasm">Rust / WASM scalar</option><option value="js">JavaScript BigInt · эталон</option></select></label>
-    <label class="check"><input id="optimized" type="checkbox" checked> Оптимизация шейдера</label>
-    <label class="check"><input id="rings" type="checkbox" checked> Кольцевой кэш полёта</label>
+    <label>Движок<select id="backend"><option value="wasm">WASM SIMD + GPU</option><option value="js">JavaScript + GPU</option></select></label>
     <p class="hint">Колесо — масштаб · перетаскивание — перемещение</p>
     <button id="benchmark" class="secondary">Проверить точность и скорость</button>
   </section>
@@ -31,7 +29,6 @@ const el = <T extends HTMLElement>(id: string) => document.getElementById(id) as
 const canvas = el<HTMLCanvasElement>('fractal'), status = el('status'), metrics = el('metrics');
 const iterationsInput = el<HTMLSelectElement>('iterations'), routeInput = el<HTMLSelectElement>('route');
 const zoomInput = el<HTMLInputElement>('zoom'), backendInput = el<HTMLSelectElement>('backend');
-const optimizedInput = el<HTMLInputElement>('optimized'), ringsInput = el<HTMLInputElement>('rings');
 const aaInput = el<HTMLSelectElement>('aa'), playButton = el<HTMLButtonElement>('play');
 const params = new URLSearchParams(location.search);
 if (params.has('diagnostics')) {
@@ -73,7 +70,7 @@ async function requestReference() {
     renderer.setReference(computation.result);
     referenceKey = computation.result.id; referenceCamera = snapshot; referenceMs = computation.result.computeMs;
     memoryBytes = computation.memoryBytes; memoryMode = computation.memoryMode;
-    actualBackend = computation.variant === 'js' ? 'JS' : `WASM ${computation.variant.toUpperCase()}`;
+    actualBackend = computation.result.backend === 'js' ? 'JS' : 'WASM SIMD';
     client.recycle(computation.result); tell('Готово'); markDirty();
   } catch (error) {
     if (version === requestVersion && !(error instanceof Error && error.name === 'AbortError')) {
@@ -86,7 +83,7 @@ function view(): RenderView {
   return { center: [fixedToNumber(camera.x, camera.bits), fixedToNumber(camera.y, camera.bits)],
     scale: 2 ** camera.logScale, logScale: camera.logScale, offsetX: offset.x as [number, number], offsetY: offset.y as [number, number],
     iterations: Number(iterationsInput.value), fold: 1, celtic: 0, aa: Number(aaInput.value), hue: 0,
-    optimized: optimizedInput.checked, guided: playing && routeLocked && ringsInput.checked,
+    guided: playing && routeLocked,
     referenceKey, temporal: true, position: { x: camera.x, y: camera.y, bits: camera.bits } };
 }
 function resize() {
@@ -122,7 +119,7 @@ routeInput.onchange = () => { tour = TOURS.find(t => t.id === routeInput.value)!
 zoomInput.oninput = () => { stop(); if (!routeLocked) chooseTour(Number(zoomInput.value)); else { setZoom(camera, Number(zoomInput.value)); markDirty(); } };
 iterationsInput.onchange = () => { stop(); referenceCamera = null; void requestReference(); };
 backendInput.onchange = () => { stop(); void requestReference(); };
-aaInput.onchange = markDirty; optimizedInput.onchange = markDirty; ringsInput.onchange = markDirty;
+aaInput.onchange = markDirty;
 canvas.addEventListener('wheel', event => {
   event.preventDefault(); stop(); routeLocked = false;
   const rect = canvas.getBoundingClientRect();

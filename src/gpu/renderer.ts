@@ -8,11 +8,11 @@ type Path = 0 | 1 | 2;
 interface Program { program: WebGLProgram; uniforms: Map<string, WebGLUniformLocation | null> }
 interface TimerExtension { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number }
 export interface GpuTiming {
-  frame: number; milliseconds: number; optimized: boolean;
+  frame: number; milliseconds: number;
   path: 'direct' | 'float' | 'fe'; ring: boolean;
 }
 export interface RendererStats {
-  path: 'direct' | 'float' | 'fe'; optimized: boolean; frame: number;
+  path: 'direct' | 'float' | 'fe'; frame: number;
   ringsDrawn: number; ringSamples: number; ringResets: number;
   ringFrames: number; ringActive: boolean; referenceUploads: number;
 }
@@ -60,7 +60,7 @@ export class FractalRenderer {
   private readonly temporal = new TemporalAccumulator();
   private temporalTargets: TemporalTargets | null = null;
   readonly stats: RendererStats = {
-    path: 'direct', optimized: true, frame: 0,
+    path: 'direct', frame: 0,
     ringsDrawn: 0, ringSamples: 0, ringResets: 0,
     ringFrames: 0, ringActive: false, referenceUploads: 0,
   };
@@ -85,7 +85,7 @@ export class FractalRenderer {
     gl.disable(gl.BLEND);
     gl.disable(gl.DITHER);
     try {
-      this.getShipProgram(0, false, false, false);
+      this.getShipProgram(0, false);
       this.checkError('инициализация');
     } catch (error) {
       this.dispose();
@@ -191,7 +191,6 @@ export class FractalRenderer {
     this.pollGpuTimers();
     this.stats.frame++;
     this.stats.path = pathName(path);
-    this.stats.optimized = view.optimized;
     this.stats.ringActive = false;
     gl.bindVertexArray(this.vao);
     gl.disable(gl.SCISSOR_TEST);
@@ -210,7 +209,7 @@ export class FractalRenderer {
           gl.bindFramebuffer(gl.FRAMEBUFFER, null);
           gl.viewport(0, 0, this.canvas.width, this.canvas.height);
           gl.disable(gl.SCISSOR_TEST);
-          const program = this.getShipProgram(path, view.optimized, view.fold === 1 && view.celtic === 0, false);
+          const program = this.getShipProgram(path, false);
           this.shipUniforms(program, view);
           gl.drawArrays(gl.TRIANGLES, 0, 3);
         }
@@ -225,7 +224,7 @@ export class FractalRenderer {
       if (query && this.timer) {
         gl.endQuery(this.timer.TIME_ELAPSED_EXT);
         this.pendingTimers.push({ query, sample: {
-          frame: this.stats.frame, optimized: view.optimized, path: pathName(path), ring: this.stats.ringActive,
+          frame: this.stats.frame, path: pathName(path), ring: this.stats.ringActive,
         } });
         gl.flush();
       }
@@ -324,10 +323,8 @@ export class FractalRenderer {
     }
   }
 
-  private getShipProgram(path: Path, optimized: boolean, full: boolean, ring: boolean): Program {
-    // Only full-Ship optimized programs specialize; generic formulas remain selectable.
-    const specialize = optimized && full;
-    return this.getProgram(`ship/${path}/${+optimized}/${+specialize}/${+ring}`, shipFragment(path, optimized, specialize, ring));
+  private getShipProgram(path: Path, ring: boolean): Program {
+    return this.getProgram(`ship/${path}/${+ring}`, shipFragment(path, ring));
   }
 
   private uniform(program: Program, name: string): WebGLUniformLocation | null {
@@ -432,13 +429,13 @@ export class FractalRenderer {
     const targets = this.getTemporalTargets();
     const gl = this.gl;
     const key = [this.referenceVersion, view.referenceKey, path, view.iterations,
-      view.fold, view.celtic, view.hue, +view.optimized].join(':');
+      view.fold, view.celtic, view.hue].join(':');
     const frame = this.temporal.prepare({ ...position, logScale: view.logScale },
       targets.width, targets.height, view.aa, key);
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, targets.width, targets.height);
     gl.bindFramebuffer(gl.FRAMEBUFFER, targets.current.framebuffer);
-    const ship = this.getShipProgram(path, view.optimized, view.fold === 1 && view.celtic === 0, false);
+    const ship = this.getShipProgram(path, false);
     this.shipUniforms(ship, view);
     gl.uniform1f(this.uniform(ship, 'aa'), 1);
     gl.uniform2f(this.uniform(ship, 'jitter'), frame.jitter.x, frame.jitter.y);
@@ -488,7 +485,7 @@ export class FractalRenderer {
   private ringKey(view: RenderView): string {
     return [this.canvas.width, this.canvas.height, this.referenceVersion, view.referenceKey,
       view.center[0], view.center[1], ...view.offsetX, ...view.offsetY, view.iterations,
-      view.fold, view.celtic, view.hue, +view.optimized].join(':');
+      view.fold, view.celtic, view.hue].join(':');
   }
 
   private createRings(view: RenderView, key: string): RingCache | null {
@@ -534,7 +531,7 @@ export class FractalRenderer {
       const logScale = cache.origin - index * band.step;
       const innermostLogScale = cache.origin - (index + rows - 1) * band.step;
       const path: Path = innermostLogScale > -90 ? 1 : 2;
-      const program = this.getShipProgram(path, view.optimized, view.fold === 1 && view.celtic === 0, true);
+      const program = this.getShipProgram(path, true);
       this.shipUniforms(program, view, logScale);
       gl.uniform4f(this.uniform(program, 'ringBlock'), band.x, band.row + row, band.angles, band.step);
       gl.bindFramebuffer(gl.FRAMEBUFFER, cache.framebuffer);

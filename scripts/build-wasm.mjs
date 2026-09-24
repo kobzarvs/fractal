@@ -15,16 +15,12 @@ function run(command, args, env = process.env) {
 
 const optimizer = spawnSync('wasm-opt', ['--version'], { encoding: 'utf8' });
 if (optimizer.status !== 0) throw new Error('Install Binaryen (wasm-opt) before building the WASM kernels.');
-for (const simd of [false, true]) {
-  const name = simd ? 'simd' : 'scalar';
-  const target = resolve(root, `target/wasm-${name}`);
-  run('cargo', ['build', '--locked', '--release', '-p', 'fractal-core', '--target', 'wasm32-unknown-unknown', '--target-dir', target], {
-    ...process.env,
-    RUSTFLAGS: `-C target-feature=${simd ? '+' : '-'}simd128 -C link-arg=--initial-memory=2097152 -C link-arg=--max-memory=268435456`,
-  });
-  const raw = resolve(target, 'wasm32-unknown-unknown/release/fractal_core.wasm');
-  const binary = resolve(output, `core-${name}.wasm`);
-  run('wasm-opt', [raw, '-O3', '--enable-bulk-memory', '--enable-sign-ext', '--enable-nontrapping-float-to-int', ...(simd ? ['--enable-simd'] : []), '-o', binary]);
-  const size = statSync(binary).size;
-  console.log(`${name}: ${size.toLocaleString()} bytes`);
-}
+const target = resolve(root, 'target/wasm-simd');
+run('cargo', ['build', '--locked', '--release', '-p', 'fractal-core', '--target', 'wasm32-unknown-unknown', '--target-dir', target], {
+  ...process.env,
+  RUSTFLAGS: '-C target-feature=+simd128 -C link-arg=--initial-memory=2097152 -C link-arg=--max-memory=268435456',
+});
+const raw = resolve(target, 'wasm32-unknown-unknown/release/fractal_core.wasm');
+const binary = resolve(output, 'core-simd.wasm');
+run('wasm-opt', [raw, '-O3', '--enable-bulk-memory', '--enable-sign-ext', '--enable-nontrapping-float-to-int', '--enable-simd', '-o', binary]);
+console.log(`WASM SIMD: ${statSync(binary).size.toLocaleString()} bytes`);

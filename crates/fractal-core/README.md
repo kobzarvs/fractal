@@ -1,6 +1,6 @@
 # Fractal numerical kernel
 
-Build both variants with `node scripts/build-wasm.mjs`. This requires Rust with
+Build the single SIMD module with `node scripts/build-wasm.mjs`. This requires Rust with
 `wasm32-unknown-unknown` and Binaryen's `wasm-opt` on PATH. `cargo test --workspace`
 runs native arithmetic, orbit, validation and allocation tests.
 
@@ -48,13 +48,13 @@ below 165 KiB; allocator capacity and fragmentation are additional overhead.
 
 ## Floating-point portability
 
-The SIMD variant vectorizes two independent columns of BLA matrix products using
-`f64x2`; the multiply/add order is identical to scalar code. No fast math, relaxed
+The WASM module vectorizes two independent columns of BLA matrix products using
+`f64x2`; the multiply/add order is identical to the native Rust arithmetic used by tests. No fast math, relaxed
 SIMD or fused multiply-add is enabled. BLA norm/minimum calculations explicitly
 propagate NaN like JavaScript rather than adopting Rust's NaN-skipping min/max.
 
 BLA transcendental functions use `libm`. Current differential tests require exact
-Float32 bytes, not a tolerance, and pass for both variants. This is not a proof
+Float32 bytes, not a tolerance, between WASM SIMD and the JS oracle. This is not a proof
 that every browser engine's Math implementation rounds every possible input
 identically; retain cross-engine differential validation when changing engines
 or numerical dependencies. Deep orbit mantissa/exponent exports remain nonzero

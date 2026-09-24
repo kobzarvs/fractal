@@ -1,7 +1,7 @@
 import type { ReferenceRequest, ReferenceResult } from '../types.ts';
 import type { Backend, FromWorker, ToWorker } from './protocol.ts';
 import { abortError, resultBuffers } from './protocol.ts';
-export interface Computation { result: ReferenceResult; memoryBytes: number; memoryMode: string; variant: 'scalar' | 'simd' | 'js' }
+export interface Computation { result: ReferenceResult; memoryBytes: number; memoryMode: string }
 export class ReferenceClient {
   private worker: Worker;
   private sequence = 0;
