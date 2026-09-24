@@ -443,9 +443,13 @@ uniform vec4 bandLayout[SHIP_RING_BANDS]; // first row, angles, log2 step, rings
 uniform vec4 bandPlace[SHIP_RING_BANDS]; // ring index at one view height (mod rings), outer radius, first column, strip columns
 
 vec3 ringTexel(ivec2 origin, ivec2 texel, int columns, int rings) {
+#ifdef SHIP_RING_CONTIGUOUS
+    return texelFetch(ringMap, origin + texel, 0).rgb;
+#else
     // Logical angles continue across physical strips stacked vertically.
     ivec2 physical = ivec2(texel.x % columns, texel.y + (texel.x / columns) * rings);
     return texelFetch(ringMap, origin + physical, 0).rgb;
+#endif
 }
 
 vec3 ringSample(vec4 band, float column, float columns, vec2 at) {
@@ -509,3 +513,8 @@ void main() {
     fragmentColour = vec4(colour / aa, 1.0);
 }
 `;
+
+// Unsplit atlases need no per-texel integer division or remainder. Keep every
+// sampling and colour expression shared with the strip-capable program.
+export const contiguousRingFragment = ringFragment.replace('#version 300 es',
+    '#version 300 es\n#define SHIP_RING_CONTIGUOUS 1');

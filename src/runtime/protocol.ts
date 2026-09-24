@@ -3,6 +3,7 @@ export interface RuntimeRoute { x: string; y: string; endZoom: number }
 export interface CameraSnapshot { x: string; y: string; bits: number; logScale: number }
 export interface RuntimeState {
   ready: boolean; pending: boolean; lost: boolean; playing: boolean;
+  preparing: boolean; playRequested: boolean;
   zoom: number; logScale: number; bits: number; path: string;
   fps: number; cpuFrameMs: number; gpuMs: number | null;
   referenceMs: number; memoryBytes: number; frame: number;

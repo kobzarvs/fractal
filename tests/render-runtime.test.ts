@@ -15,7 +15,7 @@ const compiled = stripTypeScriptTypes(source, { mode: 'transform' })
   .replaceAll("'./temporal'", JSON.stringify(new URL('../src/gpu/temporal.ts', import.meta.url).href));
 const { FractalRenderer } = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
 const binary = await readFile(new URL('../public/wasm/core-simd.wasm', import.meta.url));
-type Draw = { kind: number; path: number; viewport: number[]; values: Record<string, number[]> };
+type Draw = { kind: number; path: number; flags?: number; viewport: number[]; values: Record<string, number[]> };
 function fakeCanvas(width: number, height: number, maximum = 16384) {
   const calls: Draw[] = [];
   let current: any, viewport: number[] = [], framebuffer: any;
@@ -65,7 +65,7 @@ async function runtime(width: number, height: number, maximum = 16384) {
       values.viewHeight = [height]; values.bandCount = [raw[33]];
       const bands = new Float32Array(core.memory.buffer, ptr + 192, 64), places = new Float32Array(core.memory.buffer, ptr + 448, 64);
       for (let i = 0; i < raw[33]; i++) { values[`bandLayout[${i}]`] = Array.from(bands.slice(i * 4, i * 4 + 4)); values[`bandPlace[${i}]`] = Array.from(places.slice(i * 4, i * 4 + 4)); }
-      calls.push({ kind: header[0], path: header[1], viewport: Array.from(header.slice(3, 7)), values }); return 0;
+      calls.push({ kind: header[0], path: header[1], flags: header[2], viewport: Array.from(header.slice(3, 7)), values }); return 0;
     },
   } });
   core = instance.exports;
@@ -106,6 +106,21 @@ function view(camera: Camera, initial: Camera, guided: boolean): RenderView {
   return { center: [fixedToNumber(camera.x, camera.bits), fixedToNumber(camera.y, camera.bits)], scale: 2 ** camera.logScale, logScale: camera.logScale,
     offsetX: offset.x, offsetY: offset.y, iterations: 16384, aa: 2, fold: 1, celtic: 0, hue: 0, guided, referenceKey: 1, temporal: !guided, position: camera };
 }
+test('WASM marks only contiguous ring atlases for direct texel addressing', async () => {
+  for (const [width, height, maximum, contiguous] of [[1920, 1080, 16384, true], [3840, 2160, 16384, false], [1280, 720, 4096, false]] as const) {
+    const wasm = await runtime(width, height, maximum);
+    try {
+      const camera = makeCamera(width / height); setZoom(camera, 30);
+      const frameView = view(camera, camera, true);
+      for (let frame = 0; frame < 60 && !wasm.calls.some(call => call.kind === 2); frame++) wasm.render(frameView);
+      const assembly = wasm.calls.find(call => call.kind === 2);
+      assert.ok(assembly, `${width}x${height} cache must finish filling`);
+      assert.equal(!!(assembly.flags! & 2), contiguous, `${width}x${height} atlas addressing`);
+      assert.equal(assembly.flags! & 1, 0, 'assembly must not inherit the ring-write scissor flag');
+      for (const draw of wasm.calls) if (draw.kind !== 2) assert.equal(draw.flags! & 2, 0);
+    } finally { wasm.core.render_dispose(); }
+  }
+});
 test('WASM ring planner submits the same commands and f32 uniforms as the former JS planner', async () => {
   for (const [width, height, maximum] of [[320, 200, 16384], [1920, 1080, 16384], [3840, 2160, 16384], [1280, 720, 4096]]) {
     const fake = fakeCanvas(width, height, maximum), js = new FractalRenderer(fake.canvas), wasm = await runtime(width, height, maximum);
@@ -174,4 +189,20 @@ test('clock reset preserves a warmed Rust-owned flight cache and exact one-secon
   }
   assert.ok(Math.abs(stats[9] - 30.55) < 1e-10, `end zoom ${stats[9]}`);
   assert.equal(stats[4], resets);
+});
+
+test('an oversized zoom jump keeps the bounded fullscreen fallback instead of rebuilding the whole atlas', async () => {
+  const wasm = await runtime(3840, 2160);
+  const camera = makeCamera(3840 / 2160); setZoom(camera, 30);
+  const initial = { ...camera };
+  try {
+    const stats = new Float64Array(wasm.core.memory.buffer, wasm.core.render_stats_ptr(), 16);
+    for (let frame = 0; frame < 120 && !stats[6]; frame++) wasm.render(view(camera, initial, true));
+    assert.equal(stats[6], 1);
+    wasm.calls.length = 0;
+    setZoom(camera, 60);
+    wasm.render(view(camera, initial, true));
+    assert.equal(stats[6], 0);
+    assert.deepEqual(wasm.calls.map(call => call.kind), [0], 'large jumps must preserve the original full-frame fallback');
+  } finally { wasm.core.render_dispose(); }
 });

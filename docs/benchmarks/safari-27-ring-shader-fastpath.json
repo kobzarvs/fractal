@@ -1,0 +1,3001 @@
+{
+  "kind": "production-ring-shader-microbenchmark",
+  "createdAt": "2026-09-24T22:39:56.183Z",
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15",
+  "gpuDevice": {
+    "vendor": "Apple Inc.",
+    "renderer": "Apple GPU",
+    "version": "WebGL 2.0",
+    "maxTextureSize": 16384
+  },
+  "gpuTimerSupported": false,
+  "options": {
+    "width": 1920,
+    "height": 1080,
+    "maxima": [
+      16384,
+      8192
+    ],
+    "aa": [
+      1,
+      2,
+      5
+    ],
+    "timingOrder": "ABBAABBA",
+    "drainEachFrame": true
+  },
+  "baseline": "ringFragment snapshot before contiguous optimization",
+  "originalSourceSha256": "7c79f658164f8aeafb420370cea6c0eb3929f94da2fdab81e09aefc959736158",
+  "contiguousSourceSha256": "35f230aa302c5fe4754f3b1c193cb48aea6d7e9c35d25ca656655a36ea5cdd7a",
+  "genericSourceSha256": "d86f67e5c36a7c6bd1a11e96d90e8c6f8a90e9c8f0984dd97f8979d44d3cc440",
+  "note": "Actual production exports against the pre-optimization shader. Same deterministic atlas/uniforms; exact RGBA8 comparison. GPU queries may be unavailable. Blocking drain is readPixels wall time, not hardware GPU time or FPS.",
+  "exactPixels": true,
+  "layouts": [
+    {
+      "maximum": 16384,
+      "variant": "contiguous",
+      "atlas": {
+        "width": 10391,
+        "height": 2891,
+        "bytes": 120161524,
+        "strips": [
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "cases": [
+        {
+          "aa": 1,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 3,
+            "meanMs": 0.75,
+            "medianMs": 1,
+            "minMs": 0,
+            "maxMs": 1
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 0
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 3,
+            "meanMs": 0.75,
+            "medianMs": 1,
+            "minMs": 0,
+            "maxMs": 1
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 0
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 4,
+            "meanMs": 1,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 1
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 3,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 4,
+            "meanMs": 1,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 1
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 1,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 13,
+            "meanMs": 3.25,
+            "medianMs": 3.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 14,
+            "meanMs": 3.5,
+            "medianMs": 3.5,
+            "minMs": 2,
+            "maxMs": 5
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 5
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 13,
+            "meanMs": 3.25,
+            "medianMs": 3.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 13,
+            "meanMs": 3.25,
+            "medianMs": 3.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "contiguous",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 1,
+              "blockingDrainMs": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "maximum": 8192,
+      "variant": "generic",
+      "atlas": {
+        "width": 5196,
+        "height": 5199,
+        "bytes": 108056016,
+        "strips": [
+          2,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1,
+          1
+        ]
+      },
+      "cases": [
+        {
+          "aa": 1,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 5,
+            "meanMs": 1.25,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 2
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 2
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 5,
+            "meanMs": 1.25,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 2
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 1,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 5,
+            "meanMs": 1.25,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 2
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 5,
+            "meanMs": 1.25,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 2
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 7,
+            "meanMs": 1.75,
+            "medianMs": 1.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 6,
+            "meanMs": 1.5,
+            "medianMs": 1,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 2,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2,
+            "minMs": 1,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 9,
+            "meanMs": 2.25,
+            "medianMs": 2.5,
+            "minMs": 1,
+            "maxMs": 3
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 1
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 0,
+          "shift": 0,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 1,
+          "shift": 0.000436181324398729,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 2,
+          "shift": 0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 12,
+            "meanMs": 3,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 12,
+            "meanMs": 3,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 3,
+          "shift": -0.000872362648797458,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 3
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 11,
+            "meanMs": 2.75,
+            "medianMs": 2.5,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 4,
+          "shift": 1.5056979318244126,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 12,
+            "meanMs": 3,
+            "medianMs": 3,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 10,
+            "meanMs": 2.5,
+            "medianMs": 2,
+            "minMs": 2,
+            "maxMs": 4
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        },
+        {
+          "aa": 5,
+          "shiftIndex": 5,
+          "shift": 1.50657029447321,
+          "pixels": {
+            "equal": true,
+            "mismatchedPixels": 0,
+            "mismatchedChannels": 0,
+            "maxDifference": 0,
+            "firstMismatch": null
+          },
+          "original": null,
+          "candidate": null,
+          "originalDrain": {
+            "samples": 4,
+            "totalMs": 15,
+            "meanMs": 3.75,
+            "medianMs": 4,
+            "minMs": 3,
+            "maxMs": 4
+          },
+          "candidateDrain": {
+            "samples": 4,
+            "totalMs": 8,
+            "meanMs": 2,
+            "medianMs": 2,
+            "minMs": 2,
+            "maxMs": 2
+          },
+          "gpuRatioCandidateOverOriginal": null,
+          "samples": [
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 3
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "generic",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 2
+            },
+            {
+              "variant": "original",
+              "gpuMs": null,
+              "cpuMs": 0,
+              "blockingDrainMs": 4
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

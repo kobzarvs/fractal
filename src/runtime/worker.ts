@@ -10,6 +10,7 @@ const encoder = new TextEncoder(), decoder = new TextDecoder();
 let renderer: WasmRenderer | null = null, canvas: OffscreenCanvas;
 let input: Float64Array, stats: Float64Array, textArea: Uint8Array, buffer: ArrayBuffer;
 let pending = false, lost = false, suspended = false, dirty = true, playing = false, guided = false;
+let preparing = false, prepared = false, playRequested = false, playEndZoom = 120;
 let referenceMs = 0, referenceStarted = 0, cpuFrameMs = 0, lastPublication = 0;
 let referenceScheduled = false, ready = false, failed = false, referenceDebounce = 0;
 let settings: RuntimeSettings;
@@ -32,6 +33,23 @@ function args(a = 0, b = 0, c = 0, d = 0, e = 0): void {
 function cameraCommand(op: number, a = 0, b = 0, c = 0, d = 0, e = 0): void {
   args(a, b, c, d, e); check(renderer!.exports.render_camera_command(op), 'Камера'); dirty = true;
 }
+function invalidatePreparation(): void {
+  renderer!.cancelPreparation();
+  prepared = false;
+  if (playing) playRequested = true;
+  playing = false;
+  cameraCommand(4, 0);
+  preparing = guided && ready && !pending;
+}
+function startFlight(): void {
+  playRequested = false; preparing = false; playing = true;
+  cameraCommand(6); cameraCommand(4, 1, playEndZoom);
+}
+function cancelFlight(): void {
+  if (playing) { prepared = false; preparing = guided && ready && !pending; }
+  playRequested = false; playing = false;
+  cameraCommand(4, 0);
+}
 function encodeCoordinates(x: string, y: string): [number, number] {
 
   const first = encoder.encodeInto(x, textArea);
@@ -48,17 +66,18 @@ function snapshot(): CameraSnapshot {
 function publish(now = performance.now()): void {
   if (!renderer || failed) return;
 
-  const state: RuntimeState = { ready, pending, lost, playing,
+  const state: RuntimeState = { ready, pending, lost, playing, preparing, playRequested,
     zoom: stats[9], logScale: stats[10], bits: stats[11],
     path: stats[0] === 0 ? 'direct' : stats[0] === 1 ? 'float' : 'fe',
-    fps: suspended || pending || lost || (!playing && !dirty && !stats[8]) ? 0 : stats[15],
+    fps: suspended || pending || preparing || lost || (!playing && !dirty && !stats[8]) ? 0 : stats[15],
     cpuFrameMs, gpuMs: renderer.gpuTimeMs, referenceMs,
     memoryBytes: buffer.byteLength, frame: stats[1], ringActive: !!stats[6],
     drawCalls: stats[14], uploadBytes: renderer.totalReferenceUploadBytes };
   scope.postMessage({ type: 'state', state }); lastPublication = now;
 }
 function fail(error: unknown): void {
-  pending = false; playing = false; dirty = false; failed = true;
+  renderer?.cancelPreparation();
+  pending = false; playing = false; preparing = false; playRequested = false; dirty = false; failed = true;
   scope.postMessage({ type: 'error', message: error instanceof Error ? error.message : String(error) });
 }
 function scheduleReferenceStep(): void {
@@ -68,10 +87,11 @@ function scheduleReferenceStep(): void {
 function beginReference(): void {
   clearTimeout(referenceDebounce);
   if (!renderer || lost) return;
+  pending = true; invalidatePreparation(); preparing = false;
   referenceStarted = performance.now();
   renderer.exports.render_cancel_reference();
   check(renderer.exports.render_begin_reference(), 'Опорная орбита');
-  pending = true; publish(); scheduleReferenceStep();
+  publish(); scheduleReferenceStep();
 }
 referenceQueue.port1.onmessage = () => {
   referenceScheduled = false;
@@ -84,6 +104,7 @@ referenceQueue.port1.onmessage = () => {
     renderer.refreshReferenceFromCore();
     referenceMs = performance.now() - referenceStarted;
     pending = false; ready = true; dirty = true;
+    preparing = guided; prepared = false;
     cameraCommand(6); publish();
   } catch (error) { fail(error); }
 };
@@ -99,36 +120,45 @@ function handle(message: Exclude<RuntimeRequest, { type: 'init' }>): void {
     failed = false;
     switch (message.type) {
       case 'route': {
-        playing = false; guided = true;
+        cancelFlight(); guided = true;
         const lengths = encodeCoordinates(message.route.x, message.route.y);
         check(renderer.exports.render_set_route(lengths[0], lengths[1], message.route.endZoom, message.zoom), 'Маршрут');
         beginReference(); break;
       }
       case 'overview':
-        playing = false; guided = false; cameraCommand(0, message.aspect); beginReference(); break;
+        cancelFlight(); guided = false; cameraCommand(0, message.aspect); beginReference(); break;
       case 'zoom':
-        playing = false; cameraCommand(4, 0); cameraCommand(3, message.zoom); break;
+        cancelFlight(); cameraCommand(3, message.zoom); invalidatePreparation(); break;
       case 'zoom-at':
-        playing = false; guided = false; cameraCommand(4, 0);
+        cancelFlight(); guided = false; preparing = false; prepared = false;
+        renderer.cancelPreparation();
         cameraCommand(2, message.x, message.y, message.width, message.height, message.delta);
         clearTimeout(referenceDebounce); referenceDebounce = setTimeout(() => {
           try { beginReference(); } catch (error) { fail(error); }
         }, 120) as unknown as number; break;
       case 'pointer':
-        playing = false; guided = false; cameraCommand(4, 0);
+        cancelFlight(); guided = false; preparing = false; prepared = false;
+        renderer.cancelPreparation();
         cameraCommand(message.phase === 'start' ? 8 : message.phase === 'move' ? 9 : 10,
           message.x, message.y, message.height);
         if (message.phase === 'end') beginReference(); break;
       case 'play':
-        playing = message.enabled; cameraCommand(4, +playing, message.endZoom); break;
+        playEndZoom = message.endZoom;
+        if (!message.enabled) cancelFlight();
+        else {
+          playRequested = true;
+          if (!pending && (!guided || prepared)) startFlight();
+          else { playing = false; cameraCommand(4, 0); preparing = guided && ready && !pending; }
+        }
+        break;
       case 'resize':
         canvas.width = message.width; canvas.height = message.height;
         input[0] = message.width; input[1] = message.height;
-        renderer.exports.render_mark_dirty(); dirty = true; break;
+        renderer.exports.render_mark_dirty(); dirty = true; invalidatePreparation(); break;
       case 'settings': {
         const recompute = settings.iterations !== message.settings.iterations || settings.fold !== message.settings.fold
           || settings.celtic !== message.settings.celtic;
-        applySettings(message.settings); dirty = true;
+        applySettings(message.settings); dirty = true; invalidatePreparation();
         if (recompute) beginReference(); break;
       }
       case 'suspend':
@@ -146,11 +176,20 @@ function handle(message: Exclude<RuntimeRequest, { type: 'init' }>): void {
   } catch (error) { fail(error); }
 }
 function frame(now: number): void {
-  if (renderer && !failed && !pending && !lost && !suspended && (dirty || playing || stats[8])) {
+  if (renderer && !failed && !pending && !lost && !suspended) {
     try {
-      input[16] = +(guided && playing);
-      const start = performance.now(); renderer.renderCamera(now); cpuFrameMs = performance.now() - start;
-      dirty = false; playing = !!stats[12];
+      if (preparing && !dirty && !stats[8]) {
+        input[16] = 1;
+        if (renderer.prepareCamera(now)) {
+          prepared = true; preparing = false;
+          if (playRequested) startFlight();
+          publish(now);
+        }
+      } else if (dirty || playing || stats[8]) {
+        input[16] = +(guided && playing);
+        const start = performance.now(); renderer.renderCamera(now); cpuFrameMs = performance.now() - start;
+        dirty = false; playing = !!stats[12];
+      } else if (playRequested) startFlight();
     } catch (error) { fail(error); }
   }
   if (now - lastPublication >= 250) publish(now);
@@ -172,7 +211,8 @@ async function init(message: Extract<RuntimeRequest, { type: 'init' }>): Promise
   } else cameraCommand(0, message.aspect);
   canvas.addEventListener('webglcontextlost', event => {
     event.preventDefault(); renderer!.exports.render_cancel_reference();
-    clearTimeout(referenceDebounce); lost = true; pending = false; playing = false; publish();
+    clearTimeout(referenceDebounce); lost = true; pending = false; playing = false;
+    preparing = false; prepared = false; playRequested = false; publish();
   });
   canvas.addEventListener('webglcontextrestored', () => {
     try {

@@ -120,10 +120,10 @@ function resize() {
 function updateFrameRate(now: number) {
   if (wasmRuntime) {
     const state = wasmRuntime.state;
-    fpsValue.textContent = state.pending || state.lost || benchmarking || rendererFailed ? '—' : state.fps.toFixed(1).replace(/\.0$/, '');
+    fpsValue.textContent = state.pending || state.preparing || state.lost || benchmarking || rendererFailed ? '—' : state.fps.toFixed(1).replace(/\.0$/, '');
     fpsEngine.textContent = 'WASM SIMD + GPU';
     fpsState.textContent = engineStarting ? 'Загрузка движка…' : rendererFailed ? 'Ошибка движка · можно переключить' : state.lost ? 'Восстановление GPU…' : state.pending ? 'Расчёт опорной орбиты…'
-      : benchmarking ? 'Идёт сравнение движков…' : !state.playing && !state.fps ? 'Кадр готов · рендер приостановлен' : 'Кадры за последнюю секунду';
+      : benchmarking ? 'Идёт сравнение движков…' : state.preparing ? 'Подготовка кэша…' : !state.playing && !state.fps ? 'Кадр готов · рендер приостановлен' : 'Кадры за последнюю секунду';
     return;
   }
   const suspended = lost || rendererFailed || benchmarking || document.hidden || referencePending;
@@ -152,7 +152,7 @@ function animate(now: number) {
     }
     if (now - lastMetrics > 250) {
       const gpu = renderer.gpuTimeMs;
-      metrics.textContent = `${renderer.stats.path.toUpperCase()} · ${canvas.width}×${canvas.height} · Орбита ${actualBackend} ${referenceMs.toFixed(1)} мс · GPU ${gpu === null ? 'н/д' : gpu.toFixed(2) + ' мс'}${memoryBytes ? ` · ${(memoryBytes / 1048576).toFixed(1)} MiB / ${memoryMode}` : ''}`;
+      metrics.textContent = `${renderer.stats.path.toUpperCase()} · ${canvas.width}×${canvas.height} · Орбита ${actualBackend} ${referenceMs.toFixed(1)} мс · GPU ${gpu === null ? 'н/д' : gpu.toFixed(2) + ' мс'}${memoryBytes ? ` · ${(memoryBytes / 1048576).toFixed(1)} MiB / ${memoryMode}` : ''}${params.has('diagnostics') && playing ? ` · Кэш ${renderer.stats.ringActive ? 'активен' : 'не активен'}` : ''}`;
     }
   }
   if (now - lastMetrics > 250) { updateFrameRate(now); lastMetrics = now; }
@@ -228,11 +228,11 @@ canvas.addEventListener('webglcontextrestored', () => {
 }
 function acceptRuntimeState(state: RuntimeState) {
   rendererFailed = false;
-  referencePending = state.pending; lost = state.lost; playing = state.playing;
+  referencePending = state.pending; lost = state.lost; playing = state.playing || state.playRequested;
   playButton.textContent = playing ? 'Пауза' : 'Продолжить полёт';
   zoomInput.value = String(state.zoom); el('zoom-value').textContent = `10^${state.zoom.toFixed(1)}`;
-  tell(state.lost ? 'GPU-контекст потерян. Ожидание восстановления…' : state.pending ? 'Вычисление опорной орбиты…' : 'Готово', state.lost);
-  metrics.textContent = `${state.path.toUpperCase()} · ${pixelWidth}×${pixelHeight} · Орбита WASM SIMD ${state.referenceMs.toFixed(1)} мс · CPU кадра ${state.cpuFrameMs.toFixed(2)} мс · GPU ${state.gpuMs === null ? 'н/д' : state.gpuMs.toFixed(2) + ' мс'} · ${(state.memoryBytes / 1048576).toFixed(1)} MiB`;
+  tell(state.lost ? 'GPU-контекст потерян. Ожидание восстановления…' : state.pending ? 'Вычисление опорной орбиты…' : state.preparing ? 'Подготовка кэша…' : 'Готово', state.lost);
+  metrics.textContent = `${state.path.toUpperCase()} · ${pixelWidth}×${pixelHeight} · Орбита WASM SIMD ${state.referenceMs.toFixed(1)} мс · CPU кадра ${state.cpuFrameMs.toFixed(2)} мс · GPU ${state.gpuMs === null ? 'н/д' : state.gpuMs.toFixed(2) + ' мс'} · ${(state.memoryBytes / 1048576).toFixed(1)} MiB${params.has('diagnostics') && state.playing ? ` · Кэш ${state.ringActive ? 'активен' : 'не активен'}` : ''}`;
 }
 async function startEngine(initial = false) {
   const version = ++engineVersion;

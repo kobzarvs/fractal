@@ -8,6 +8,8 @@ use std::sync::Mutex;
 const INPUT_LEN: usize = 64;
 const TEXT_LEN: usize = 16384;
 const MAX_BANDS: usize = 16;
+const FLIGHT_SPEED: f64 = 0.55;
+const MAX_FRAME_SECONDS: f64 = 0.1;
 struct Shared<T>(UnsafeCell<T>);
 unsafe impl<T> Sync for Shared<T> {}
 static INPUT: Shared<[f64; INPUT_LEN]> = Shared(UnsafeCell::new([0.0; INPUT_LEN]));
@@ -57,7 +59,8 @@ fn submit(pass: &Pass) -> Result<(), i32> {
     if result < 0 { Err(result) } else { Ok(()) }
 }
 
-/// Header: kind,path,flags,x,y,width,height,index. Uniform offsets are documented
+/// Header: kind,path,flags,x,y,width,height,index. Flags: 1=scissor,
+/// 2=contiguous ring assembly. Uniform offsets are documented
 /// in src/gpu/render-wasm.ts; the layout is deliberately plain little-endian data.
 #[repr(C)]
 struct Pass {
@@ -119,6 +122,8 @@ struct Layout {
     count: usize,
     width: u32,
     height: u32,
+    contiguous: bool,
+    warm_refresh_limit: f64,
 }
 impl Layout {
     const fn empty() -> Self {
@@ -127,6 +132,8 @@ impl Layout {
             count: 0,
             width: 0,
             height: 0,
+            contiguous: false,
+            warm_refresh_limit: 0.0,
         }
     }
     fn create(width: u32, height: u32, maximum: u32) -> Option<Self> {
@@ -142,6 +149,7 @@ impl Layout {
         }
         let mut layout = Self::empty();
         layout.count = count;
+        layout.contiguous = true;
         let (mut x, mut row, mut row_height, mut texture_width) = (0u64, 0u64, 0u64, 0u64);
         for (index, radius) in radii.iter().copied().enumerate().take(count) {
             let angles_f = libm::ceil(2.0 * std::f64::consts::PI * radius * 1.5).max(16.0);
@@ -150,8 +158,14 @@ impl Layout {
             }
             let angles = angles_f as u64;
             let strips = angles.div_ceil(maximum as u64);
+            layout.contiguous &= strips == 1;
             let columns = angles.div_ceil(strips);
             let step = 2.0 * std::f64::consts::PI / angles as f64 / std::f64::consts::LN_2;
+            // One maximum-duration guided camera step, plus two rows per
+            // band for ceil/floor boundaries. Unlike a screen-pixel multiple,
+            // this limit also covers ultrawide and portrait layouts.
+            layout.warm_refresh_limit += angles as f64
+                * (FLIGHT_SPEED * MAX_FRAME_SECONDS * std::f64::consts::LOG2_10 / step + 2.0);
             let outwards = if index > 0 { 0.5 } else { 0.0 };
             let inwards = if index + 1 < count { 0.5 } else { 0.0 };
             let rings = libm::ceil((1.0 + outwards + inwards) / step) as u64 + 7;
@@ -336,6 +350,7 @@ struct Runtime {
     ring_key: [f64; 15],
     ring_valid: bool,
     ring_disabled: bool,
+    ring_complete: bool,
     ring_origin: f64,
     previous_ring_scale: f64,
     ring_velocity: f64,
@@ -376,6 +391,7 @@ impl Runtime {
             ring_key: [f64::NAN; 15],
             ring_valid: false,
             ring_disabled: false,
+            ring_complete: false,
             ring_origin: 0.0,
             previous_ring_scale: f64::NAN,
             ring_velocity: 0.0,
@@ -399,6 +415,7 @@ impl Runtime {
     fn reset_rings(&mut self) {
         self.ring_valid = false;
         self.ring_disabled = false;
+        self.ring_complete = false;
         self.previous_ring_scale = f64::NAN;
         self.ring_velocity = 0.0;
     }
@@ -498,8 +515,9 @@ impl Runtime {
         }
         Ok(())
     }
-    fn render_rings(&mut self, view: &View) -> Result<bool, i32> {
+    fn render_rings(&mut self, view: &View, preparing: bool) -> Result<bool, i32> {
         let key = view.ring_key();
+        let pixels = view.width as f64 * view.height as f64;
         if key != self.ring_key || !self.ring_valid && !self.ring_disabled {
             self.reset_rings();
             self.ring_key = key;
@@ -507,6 +525,12 @@ impl Runtime {
                 self.ring_disabled = true;
                 return Ok(false);
             };
+            // Preparation budgets whole rows. The outermost band is widest;
+            // if it cannot fit even once, preparation could never make progress.
+            if preparing && pixels / 2.0 < layout.bands[0].angles as f64 {
+                self.ring_disabled = true;
+                return Ok(false);
+            }
             let target = target_ring(layout.width, layout.height);
             if target < 0 {
                 return Err(target);
@@ -523,17 +547,22 @@ impl Runtime {
         if self.ring_disabled {
             return Ok(false);
         }
+        if preparing && pixels / 2.0 < self.ring_layout.bands[0].angles as f64 {
+            self.ring_disabled = true;
+            return Ok(false);
+        }
         let movement = (view.log_scale - self.previous_ring_scale).abs();
         self.previous_ring_scale = view.log_scale;
-        if movement.is_finite() {
+        if preparing {
+            self.ring_velocity = 0.0;
+        } else if movement.is_finite() {
             self.ring_velocity += (movement - self.ring_velocity) * 0.2;
         }
         let mut expected = 0.0;
         for band in &self.ring_layout.bands[..self.ring_layout.count] {
             expected += self.ring_velocity / band.step * band.angles as f64;
         }
-        let pixels = view.width as f64 * view.height as f64;
-        if expected > pixels {
+        if expected > pixels && !self.ring_complete {
             return Ok(false);
         }
         // Fixed work storage replaces per-frame arrays, maps and range objects.
@@ -542,7 +571,7 @@ impl Runtime {
         let mut counts = [0usize; MAX_BANDS];
         let mut missing = 0.0;
         for i in 0..self.ring_layout.count {
-            let band = &mut self.ring_layout.bands[i];
+            let band = &self.ring_layout.bands[i];
             let outer = view.log_scale + band.log_radius_over_height + band.outwards;
             let span = 1.0 + band.outwards + band.inwards;
             let first_f = libm::floor((self.ring_origin - outer) / band.step);
@@ -557,22 +586,18 @@ impl Runtime {
             let first = first_f as i64 - 2;
             let last = last_f as i64 + 2;
             wanted[i] = [first, last];
-            if band.valid && band.last >= first && band.first <= last {
-                band.first = band.first.max(first);
-                band.last = band.last.min(last);
-            } else {
-                band.valid = false;
-            }
-            if !band.valid {
+            let overlap_first = band.first.max(first);
+            let overlap_last = band.last.min(last);
+            if !band.valid || overlap_first > overlap_last {
                 ranges[i][0] = [first, last];
                 counts[i] = 1;
             } else {
-                if first < band.first {
-                    ranges[i][counts[i]] = [first, band.first - 1];
+                if first < overlap_first {
+                    ranges[i][counts[i]] = [first, overlap_first - 1];
                     counts[i] += 1;
                 }
-                if last > band.last {
-                    ranges[i][counts[i]] = [band.last + 1, last];
+                if last > overlap_last {
+                    ranges[i][counts[i]] = [overlap_last + 1, last];
                     counts[i] += 1;
                 }
             }
@@ -582,13 +607,34 @@ impl Runtime {
             }
             missing += band_missing;
         }
-        let mut budget = if missing <= pixels {
+        // A dropped animation frame can invalidate more than one screen of
+        // rows in an otherwise complete cache. Finish this bounded refresh
+        // before assembly; reverting to half-screen cold fill can never catch
+        // up with a subsequent 25 FPS flight. Large jumps retain the fallback.
+        let complete_warm_frame =
+            self.ring_complete && missing <= self.ring_layout.warm_refresh_limit;
+        if expected > pixels && !complete_warm_frame {
+            self.ring_complete = false;
+            return Ok(false);
+        }
+        let mut budget = if preparing {
+            missing.min(libm::floor(pixels / 2.0))
+        } else if missing <= pixels || complete_warm_frame {
             missing
         } else {
             libm::floor(pixels / 2.0)
         };
         let mut complete = true;
         for i in 0..self.ring_layout.count {
+            // Commit overlap changes only after choosing to refresh. Skipped
+            // large jumps must not discard rows still useful at the old view.
+            let band = &mut self.ring_layout.bands[i];
+            if band.valid && band.last >= wanted[i][0] && band.first <= wanted[i][1] {
+                band.first = band.first.max(wanted[i][0]);
+                band.last = band.last.min(wanted[i][1]);
+            } else {
+                band.valid = false;
+            }
             for range in &ranges[i][..counts[i]] {
                 let band = self.ring_layout.bands[i];
                 let rows =
@@ -619,8 +665,12 @@ impl Runtime {
                 complete = false;
             }
         }
+        self.ring_complete = complete;
         if !complete {
             return Ok(false);
+        }
+        if preparing {
+            return Ok(true);
         }
         self.uniforms(view, view.log_scale);
         self.pass.values[33] = self.ring_layout.count as f32;
@@ -645,7 +695,16 @@ impl Runtime {
                 band.columns as f32,
             ]);
         }
-        self.draw(2, view.path(), 0, 0, 0, view.width, view.height, 0)?;
+        self.draw(
+            2,
+            view.path(),
+            if self.ring_layout.contiguous { 2 } else { 0 },
+            0,
+            0,
+            view.width,
+            view.height,
+            0,
+        )?;
         self.stats[5] += 1.0;
         Ok(true)
     }
@@ -783,7 +842,7 @@ impl Runtime {
         self.stats[0] = path as f64;
         self.stats[1] += 1.0;
         self.stats[6] = 0.0;
-        let ring_used = view.guided && path != 0 && self.render_rings(view)?;
+        let ring_used = view.guided && path != 0 && self.render_rings(view, false)?;
         self.stats[6] = ring_used as u8 as f64;
         if ring_used {
             self.reset_temporal();
@@ -794,6 +853,35 @@ impl Runtime {
             self.uniforms(view, view.log_scale);
             self.draw(0, path, 0, 0, 0, view.width, view.height, 0)?;
         }
+        Ok(())
+    }
+    fn prepare_rings(&mut self, input: &[f64; INPUT_LEN]) -> Result<(), i32> {
+        if !self.position_valid || !self.has_reference || self.reference_pending {
+            return Err(-21);
+        }
+        // Overview uses the direct shader. Build the cache for the first float
+        // view while retaining the actual camera and all visible frame state.
+        let mut prepared = *input;
+        let log_scale = self.camera.log_scale.min((-8.0_f64).next_down());
+        prepared[8] = log_scale;
+        prepared[9] = crate::camera::pow2(log_scale);
+        let center = self.camera.center();
+        prepared[10] = center[0];
+        prepared[11] = center[1];
+        prepared[12..16].copy_from_slice(&self.camera.offset(&self.reference_camera));
+        prepared[22] = 1.0;
+        prepared[26] = 1.0;
+        let view = View::read(&prepared)?;
+        if !view.guided || view.width == 0 || view.height == 0 {
+            return Err(-20);
+        }
+        if view.reference_fold != view.fold
+            || view.reference_celtic != view.celtic
+            || view.reference_iterations < view.iterations
+        {
+            return Err(-21);
+        }
+        self.stats[6] = self.render_rings(&view, true)? as u8 as f64;
         Ok(())
     }
     fn camera_command(&mut self, op: u32, input: &mut [f64; INPUT_LEN]) -> Result<(), i32> {
@@ -905,14 +993,16 @@ impl Runtime {
             return Err(-20);
         }
         let elapsed = if self.last_time.is_finite() {
-            ((now - self.last_time) / 1000.0).clamp(0.0, 0.1)
+            ((now - self.last_time) / 1000.0).clamp(0.0, MAX_FRAME_SECONDS)
         } else {
             0.0
         };
         self.last_time = now;
         if self.playing && !self.reference_pending {
-            self.camera
-                .set_zoom(self.end_zoom.min(self.camera.zoom() + elapsed * 0.55))?;
+            self.camera.set_zoom(
+                self.end_zoom
+                    .min(self.camera.zoom() + elapsed * FLIGHT_SPEED),
+            )?;
             self.dirty = true;
             if self.camera.zoom() >= self.end_zoom - 1e-10 {
                 self.playing = false;
@@ -1128,6 +1218,21 @@ pub extern "C" fn render_camera_snapshot() -> i32 {
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn render_frame(mode: u32, now: f64) -> i32 {
+    if mode == 2 {
+        let mut unavailable = false;
+        let status = with_runtime(|r| {
+            r.prepare_rings(unsafe { &*INPUT.0.get() })?;
+            unavailable = r.ring_disabled;
+            Ok(())
+        });
+        // 0: progress/ready in stats[6]. 1: optional cache unavailable; the
+        // caller may use the unchanged fullscreen renderer. Negative: error.
+        return if status == 0 && unavailable {
+            1
+        } else {
+            status
+        };
+    }
     with_runtime(|r| {
         let input = unsafe { &mut *INPUT.0.get() };
         let ready = if mode == 1 {

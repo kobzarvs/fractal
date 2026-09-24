@@ -1,0 +1,5 @@
+<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Runtime flight profile</title>
+<style>body{background:#111;color:#ddd;font:14px system-ui;margin:20px}canvas{display:block;width:640px;max-width:100%;height:auto}table{border-collapse:collapse;margin:16px 0}td,th{padding:6px 12px;border:1px solid #555;text-align:right}button{font:inherit;padding:8px}</style></head>
+<body><h1>Профиль полёта реальных движков</h1><p>Последовательный ABBA: JS → WASM worker → WASM worker → JS. WASM ждёт подготовки кэша и GPU fence; оригинальный JS начинает с холодным кэшем. FPS означает частоту отправки кадров, а не показанные GPU кадры. Измерение по публикациям состояния каждые ≈250 мс.</p>
+<p id="status">Загрузка…</p><div id="canvas"></div><table><thead><tr><th>Запуск</th><th>FPS</th><th>Подготовка, мс</th><th>Кэш впервые, мс</th><th>Потери кэша</th><th>Последний zoom</th></tr></thead><tbody id="summary"></tbody></table>
+<button id="download" disabled>Скачать runtime-flight.json</button><pre id="report" hidden></pre><script type="module" src="./runtime.ts"></script></body></html>

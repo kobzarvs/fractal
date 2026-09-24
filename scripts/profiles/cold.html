@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Cold flight GPU workload profile</title>
+<style>body{background:#111;color:#ddd;font:14px system-ui;margin:20px}canvas{display:block;width:640px;max-width:100%;height:auto}pre{white-space:pre-wrap}#report{max-height:280px;overflow:auto}button{font:inherit;padding:8px}</style></head>
+<body><h1>Cold flight GPU workload profile</h1><p>Последовательно JS → WASM → WASM → JS, свежий кэш каждого запуска. Фиксированная траектория 0.55 zoom/sec, частоту шагов задаёт rateFPS (по умолчанию 60). readPixels после каждого кадра ограничивает очередь GPU. Это профиль стоимости GPU-работы, <strong>не измерение реального FPS</strong>.</p>
+<p id="status">Загрузка…</p><div id="canvas"></div><button id="download" disabled>Скачать cold-flight.json</button><pre id="summary"></pre><details><summary>Полный отчёт</summary><pre id="report"></pre></details>
+<script type="module" src="./cold.ts"></script></body></html>

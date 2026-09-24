@@ -1,6 +1,6 @@
 import type { ReferenceRequest, ReferenceResult, RenderView } from '../types';
 import type { GpuTiming, RendererStats } from './renderer';
-import { ringFragment, shipFragment, vertexShader } from './shaders';
+import { contiguousRingFragment, ringFragment, shipFragment, vertexShader } from './shaders';
 import { temporalCompositeFragment, temporalFragment } from './temporal';
 import { instantiateRenderWasm, RenderMemoryViews } from './render-wasm';
 import type { RenderWasmExports } from './render-wasm';
@@ -33,7 +33,7 @@ export class WasmRenderer {
   private readonly gl: WebGL2RenderingContext;
   private readonly vao: WebGLVertexArrayObject;
   private readonly maxTextureSize: number;
-  private readonly programs: (Program | undefined)[] = new Array(15);
+  private readonly programs: (Program | undefined)[] = new Array(16);
   private readonly references: (WebGLTexture | null)[] = [null, null, null, null, null];
   private readonly referenceWidths = new Uint32Array(5);
   private readonly referenceHeights = new Uint32Array(5);
@@ -69,8 +69,10 @@ export class WasmRenderer {
   private readonly timings: GpuTiming[] = [];
   private timingNext = 0;
   private lastGpuTime: number | null = null;
+  private preparationSync: WebGLSync | null = null;
   private readonly onContextLost = () => {
     this.contextInvalid = true;
+    this.preparationSync = null;
   };
 
   constructor(readonly canvas: HTMLCanvasElement | OffscreenCanvas) {
@@ -158,20 +160,49 @@ export class WasmRenderer {
     this.frame(1, now);
   }
 
-  private frame(mode: number, now: number): void {
+  /** Fill the route cache while Rust keeps the visible camera stationary.
+   * A positive status means the optional cache is unavailable: use full rendering. */
+  prepareCamera(now: number): boolean {
+    this.assertAlive();
+    const gl = this.gl;
+    if (this.preparationSync) {
+      const status = gl.clientWaitSync(this.preparationSync, 0, 0);
+      if (status === gl.TIMEOUT_EXPIRED) return false;
+      this.cancelPreparation();
+      if (status === gl.WAIT_FAILED) throw new Error('Не удалось дождаться подготовки GPU-кэша.');
+      return true;
+    }
+    this.inputView[0] = this.canvas.width; this.inputView[1] = this.canvas.height;
+    const status = this.frame(2, now);
+    if (status === 1) return true;
+    if (this.statsView[6] === 0) return false;
+    this.preparationSync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    if (!this.preparationSync) throw new Error('Не удалось создать GPU fence подготовки кэша.');
+    gl.flush();
+    return false;
+  }
+
+  cancelPreparation(): void {
+    if (this.preparationSync && !this.contextInvalid && !this.disposed) this.gl.deleteSync(this.preparationSync);
+    this.preparationSync = null;
+  }
+
+  private frame(mode: number, now: number): number {
     this.pollGpuTimers();
     const gl = this.gl;
     gl.bindVertexArray(this.vao);
     this.bridgeError = null;
     const previousFrame = this.statsView[1];
     let queryIndex = -1;
-    if (this.timer && this.queryCount < 8) {
+    if (mode !== 2 && this.timer && this.queryCount < 8) {
       const slot = (this.queryHead + this.queryCount) % 8;
       if (this.queries[slot]) { queryIndex = slot; gl.beginQuery(this.timer.TIME_ELAPSED_EXT, this.queries[slot]!); }
     }
     try {
-      this.checkRuntime(this.exports.render_frame(mode, now), 'кадр');
+      const status = this.exports.render_frame(mode, now);
+      this.checkRuntime(status, mode === 2 ? 'подготовка кэша' : 'кадр');
       this.updateStats();
+      return status;
     } finally {
       if (queryIndex >= 0 && this.timer) {
         gl.endQuery(this.timer.TIME_ELAPSED_EXT);
@@ -181,11 +212,13 @@ export class WasmRenderer {
         }
         gl.flush();
       }
+      if (mode === 2) gl.flush();
     }
   }
 
   setReference(reference: ReferenceResult): void {
     this.assertAlive();
+    this.cancelPreparation();
     const size = reference.capacity * 4;
     if (!Number.isSafeInteger(reference.capacity) || reference.capacity < 1024 || reference.capacity % 1024
         || !Number.isSafeInteger(reference.length) || reference.length < 2 || reference.length > reference.capacity
@@ -214,6 +247,7 @@ export class WasmRenderer {
   /** Calls Rust's upload dispatch; imports upload directly from WASM result_ptr. */
   refreshReferenceFromCore(): void {
     this.assertAlive(); this.bridgeError = null;
+    this.cancelPreparation();
     this.checkRuntime(this.exports.render_reference_ready(), 'загрузка опорной орбиты');
     this.updateStats();
   }
@@ -285,6 +319,7 @@ export class WasmRenderer {
 
   dispose(): void {
     if (this.disposed) return;
+    this.cancelPreparation();
     this.canvas.removeEventListener('webglcontextlost', this.onContextLost);
     this.exports.render_dispose();
     if (!this.contextInvalid && !this.gl.isContextLost()) {
@@ -468,7 +503,7 @@ export class WasmRenderer {
     if (cached) return cached;
     const gl = this.gl;
     const source = id < 12 ? shipFragment(id % 3 as 0 | 1 | 2, id % 6 >= 3, id >= 6)
-      : id === 12 ? ringFragment : id === 13 ? temporalFragment : temporalCompositeFragment;
+      : id === 12 ? ringFragment : id === 13 ? temporalFragment : id === 15 ? contiguousRingFragment : temporalCompositeFragment;
     const vertex = this.compile(vertexShader, gl.VERTEX_SHADER);
     let fragment: WebGLShader | null = null, handle: WebGLProgram | null = null;
     try {
@@ -496,7 +531,7 @@ export class WasmRenderer {
       const kind = integers[h], path = integers[h + 1], index = integers[h + 7];
       const ship = kind === 0 || kind === 1 || kind === 3;
       const programId = ship ? path + (kind === 1 ? 3 : 0) + (floats[u + 34] !== 0 ? 6 : 0)
-        : kind === 2 ? 12 : kind === 4 ? 13 : 14;
+        : kind === 2 ? (integers[h + 2] & 2 ? 15 : 12) : kind === 4 ? 13 : 14;
       const program = this.getProgram(programId), l = program.locations;
       this.use(program);
       if (kind === 1) this.bindFramebuffer(this.ringTarget!.framebuffer);

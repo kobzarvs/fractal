@@ -3,7 +3,7 @@ import type { CameraSnapshot, RuntimeCommand, RuntimeRequest, RuntimeResponse, R
 /** UI transport only. Camera and renderer calculations live in the WASM worker. */
 export class WasmRuntimeClient {
   readonly ready: Promise<void>;
-  state: RuntimeState = { ready: false, pending: true, lost: false, playing: false,
+  state: RuntimeState = { ready: false, pending: true, lost: false, playing: false, preparing: false, playRequested: false,
     zoom: 0, logScale: 0, bits: 128, path: 'direct', fps: 0, cpuFrameMs: 0, gpuMs: null,
     referenceMs: 0, memoryBytes: 0, frame: 0, ringActive: false, drawCalls: 0, uploadBytes: 0 };
   private readonly worker: Worker;
